@@ -1,0 +1,13 @@
+import {readFile,writeFile} from 'node:fs/promises'; // 実画面試験の待機と診断だけを改善します。
+import {join,resolve} from 'node:path'; // ビルド内の試験に限定します。
+import assert from 'node:assert/strict'; // 置換箇所を厳密に確認します。
+const root=resolve(process.argv[2]); // 個人のアプリやDBには触れません。
+function replace(text,before,after,count=1){assert.equal(text.split(before).length-1,count,'Gate mismatch: '+before);return text.replaceAll(before,after);} // 未知の試験へは適用しません。
+const pages=join(root,'tools/browser-project.mjs');let old=await readFile(pages,'utf8'); // 旧タイマー試験を読みます。
+old=replace(old,"await page.waitForTimeout(1400);await page.locator('#pauseTimer').click();await page.waitForTimeout(150);assert.notEqual(await page.locator('#timer').innerText(),'00:00');","await page.waitForFunction(()=>document.getElementById('timer').textContent!=='00:00',null,{timeout:10000});await page.locator('#pauseTimer').click();await page.waitForTimeout(750);const stopped=await page.locator('#timer').innerText();assert.notEqual(stopped,'00:00');await page.waitForTimeout(1250);assert.equal(await page.locator('#timer').innerText(),stopped);"); // 固定待ちではなく実際の進行と停止を両方確認します。
+await writeFile(pages,old); // タイマー本体の動作は変えません。
+const file=join(root,'tools/catalog-browser.mjs');let text=await readFile(file,'utf8'); // 新しいコピー試験を読みます。
+text=replace(text,"await page.getByRole('button',{name:/^スライド/}).click();","await page.getByRole('button',{name:/^スライド/}).click();await page.waitForFunction(()=>!document.getElementById('searchPicker').open,null,{timeout:20000});"); // Workerからのコピー完了を待ってから中身を照合します。
+text=replace(text,"page.on('pageerror',error=>errors.push({engine,error:error.message}));","page.on('pageerror',error=>errors.push({engine,error:error.message}));const events=[];page.on('console',message=>events.push({type:message.type(),text:message.text()}));page.on('framenavigated',frame=>{if(frame===page.mainFrame())events.push({navigation:frame.url()});});"); // 失敗時に認証遷移の実測を残します。
+text=replace(text,"errors.push({engine,error:error.message});await page.screenshot", "errors.push({engine,error:error.message,events,diagnostic:await page.evaluate(()=>({url:location.href,account:document.getElementById('accountLabel')?.textContent,notice:document.getElementById('notice')?.textContent,loginCount:localStorage.getItem('test-login-count'),testAccount:localStorage.getItem('test-account'),intent:sessionStorage.getItem('zero-one-practice-connect-intent'),returned:sessionStorage.getItem('test-return'),fakeSDK:String(msal?.PublicClientApplication).slice(0,160)})).catch(()=>null)});await page.screenshot"); // 個人ではない合成状態だけを保存します。
+await writeFile(file,text); // 本番の認証処理や合否条件を変えません。

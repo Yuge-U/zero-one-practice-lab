@@ -20,6 +20,7 @@ execFileSync(process.execPath,['production/save-ux.mjs',app],{stdio:'inherit'});
 execFileSync(process.execPath,['production/save-status-errors.mjs',app],{stdio:'inherit'}); // 同期開始前の通信失敗も再試行状態として表示します。
 execFileSync(process.execPath,['production/plan-menu-labels.mjs',app],{stdio:'inherit'}); // 全体名と個別メニュー名の表示を1.0.3へ更新します。
 execFileSync(process.execPath,['production/catalog-update.mjs',app],{stdio:'inherit'}); // 大項目・検索・コピーと本人接続を1.1.0へ更新します。
+execFileSync(process.execPath,['production/catalog-gates.mjs',app],{stdio:'inherit'}); // 非同期完了の待機と認証遷移の診断を追加します。
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.1.0'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
 const files=[]; // 公開バイトの証拠を収集します。
