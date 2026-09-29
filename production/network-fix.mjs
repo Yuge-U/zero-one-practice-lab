@@ -20,6 +20,8 @@ const upgradePath=join(root,'tools/upgrade-check.mjs');let upgrade=await readFil
 const closeBefore='await page.close();page=observer;';assert.equal(upgrade.split(closeBefore).length,2); // 一つの追跡タブしか閉じていなかった箇所を限定します。
 upgrade=upgrade.replace(closeBefore,"const closedPageUrls=context.pages().filter(candidate=>candidate!==observer).map(candidate=>candidate.url());for(const candidate of context.pages())if(candidate!==observer)await candidate.close();assert.equal(context.pages().length,1);assert.equal(await observer.evaluate(()=>navigator.serviceWorker.controller?.scriptURL||null),null);console.log('Closed all app tabs before upgrade',name,JSON.stringify(closedPageUrls));page=observer;"); // 自動復元したタブも閉じてから通常のWorker更新を待ちます。
 upgrade=upgrade.replace('copyCreated:true','copyCreated:true,closedPageUrls'); // 実際に閉じたページを合否と一緒に記録します。
+const pollBefore='const registration=await navigator.serviceWorker.getRegistration(scope);const worker=';assert.equal(upgrade.split(pollBefore).length,2); // 有効化待ちの間に旧Workerへイベントを送り続ける箇所を限定します。
+upgrade=upgrade.replace(pollBefore,"const registration=await navigator.serviceWorker.getRegistration(scope);if(stage==='active'&&(registration?.waiting||registration?.installing||registration?.active?.state!=='activated'))return {pending:true,activeState:registration?.active?.state,waitingState:registration?.waiting?.state};const worker="); // 待機中は登録状態だけ観測し、有効化後に新Workerの版と全キャッシュを確認します。
 await writeFile(upgradePath,upgrade); // 待機時間・版・DB完全一致条件は緩めません。
 await copyFile('production/network-browser.mjs',join(root,'tools/network-browser.mjs')); // ネイティブ通信を使うブラウザ回帰試験を配置します。
 await copyFile('production/network.test.mjs',join(root,'tests/network.test.mjs')); // 呼出元を厳密に確認する単体試験を配置します。
