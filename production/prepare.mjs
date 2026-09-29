@@ -19,10 +19,11 @@ execFileSync(process.execPath,['production/network-fix.mjs',app],{stdio:'inherit
 execFileSync(process.execPath,['production/save-ux.mjs',app],{stdio:'inherit'}); // 保存操作と同期の表示だけを1.0.2へ更新します。
 execFileSync(process.execPath,['production/save-status-errors.mjs',app],{stdio:'inherit'}); // 同期開始前の通信失敗も再試行状態として表示します。
 execFileSync(process.execPath,['production/plan-menu-labels.mjs',app],{stdio:'inherit'}); // 全体名と個別メニュー名の表示を1.0.3へ更新します。
-const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.0.3'); // 許可した修正版だけを配信します。
+execFileSync(process.execPath,['production/catalog-update.mjs',app],{stdio:'inherit'}); // 大項目・検索・コピーと本人接続を1.1.0へ更新します。
+const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.1.0'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
 const files=[]; // 公開バイトの証拠を収集します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));assert.equal(createHash('sha256').update(bytes).digest('hex'),hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:hash,bytes:bytes.length});} // 許可した静的ファイルだけを公開領域へコピーします。
 const worker=await readFile(join(app,'web/worker.js'),'utf8');const auth=await readFile(join(app,'web/auth.mjs'),'utf8');assert(worker.includes("directory:'/.zero-one-browser-lab-v02/'+sha(scope)"));assert(worker.includes("new pool.OpfsSAHPoolDb('/core.db')"));assert(auth.includes("'guest-local'")); // DB名と本人・ゲストの境界を保持します。
 await writeFile('reports/production-build.json',JSON.stringify({version:expected.version,sourceCommit:base.sourceCommit,files,existingDataPathsPreserved:true,realMicrosoft:false,physicalIPhone:false},null,2)); // 本人端末の検証とは区別して記録します。
-console.log('1.0.3 candidate verified; browser gates must pass before deployment.'); // ビルドと公開の完了を混同しません。
+console.log('1.1.0 candidate verified; browser gates must pass before deployment.'); // ビルドと公開の完了を混同しません。

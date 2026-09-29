@@ -1,7 +1,7 @@
 name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します。
 on: # 本番以外は検証専用です。
   push: # 公開物の変更を検証します。
-    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103] # 修正ブランチからは公開しません。
+    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110] # 修正ブランチからは公開しません。
     paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明だけで再公開しません。
   workflow_dispatch: # 本人が再実行できます。
 permissions: # 通常は読取専用です。
@@ -39,7 +39,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           python3 -m venv .image-env # 変換環境を分離します。
           .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 承認画像の条件を維持します。
           node tools/build-release.mjs # 旧版を照合します。
-          node production/prepare.mjs # 保存先を変えず1.0.3の表示へ更新します。
+          node production/prepare.mjs # 保存先を変えず1.1.0へ更新します。
       - name: Install pinned browsers # 実ブラウザを準備します。
         working-directory: upstream/practice-ui-lab/app # テスト依存を公開物に混ぜません。
         run: | # 固定版を使います。
@@ -48,7 +48,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 保存と同期の状態も検証します。
         working-directory: upstream/practice-ui-lab/app # 実際の公開モジュールを使います。
         run: | # どれかが失敗したら公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs # 既存20件と表示15件を検査します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs # 既存35件と新しい30件を検査します。
           node tools/network-browser.mjs # 旧通信不具合の回帰を確認します。
           node tools/save-status-browser.mjs # 保存から自動同期と失敗復帰を実画面で確認します。
       - name: Check existing UI and data upgrade # 元の保存・コピー試験も保持します。
@@ -56,6 +56,9 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 保存先や更新前の記録を検査します。
           node tools/browser-project.mjs # 既存11シナリオです。
           node tools/production-browser.mjs # 保存・コピーと旧データ保持の検査です。
+      - name: Check category search reuse and compact login # 新しい操作を実画面で検査します。
+        working-directory: upstream/practice-ui-lab/app # 本人の資格情報を使いません。
+        run: node tools/catalog-browser.mjs # 大項目・コピー・用語検索・一括接続を確認します。
       - name: Preserve evidence # 不合格も保存します。
         if: always() # 途中失敗も隠しません。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 固定した公式保存処理です。
@@ -122,13 +125,14 @@ jobs: # 検証・配信・公開後確認を分離します。
         env: # 実際に配信されたURLです。
           SITE_URL: ${{ needs.deploy.outputs.page_url }} # 別サイトを確認しません。
         run: node production/check-public.mjs # リリース値と実バイトを照合します。
-      - name: Save copy and status on public HTTPS # 合成プロファイルだけを使用します。
+      - name: Save copy status and categories on public HTTPS # 合成プロファイルだけを使用します。
         working-directory: upstream/practice-ui-lab/app # コードは実URLから取得します。
         env: # ローカルとの違いを明示します。
           SITE_URL: ${{ needs.deploy.outputs.page_url }} # 本番URLです。
         run: | # 本人のクラウドへのアクセスは行いません。
           node tools/production-browser.mjs # ゲストの保存・コピー検査です。
           node tools/save-status-browser.mjs # 認証とGraph応答のみを合成して表示を検査します。
+          node tools/catalog-browser.mjs # カテゴリー・メニュー再利用・認証復帰を検査します。
       - name: Preserve public-site evidence # 実URLの検査結果を保存します。
         if: always() # 不合格の証拠も保持します。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 固定した保存処理です。
@@ -138,4 +142,5 @@ jobs: # 検証・配信・公開後確認を分離します。
             reports/live-files.json
             upstream/practice-ui-lab/app/reports/production-live/
             upstream/practice-ui-lab/app/reports/save-status-live/
+            upstream/practice-ui-lab/app/reports/catalog-live/
           retention-days: 14 # 検査証拠を保持します。
