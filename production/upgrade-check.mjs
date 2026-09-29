@@ -9,8 +9,13 @@ const stop=server=>new Promise(done=>{server.close(done);server.closeAllConnecti
 async function ready(page){await page.waitForFunction(()=>document.getElementById('editorFields')&&!document.getElementById('editorFields').disabled,null,{timeout:30000});} // 本物のOPFS初期化完了を確認します。
 async function backup(page){await page.getByRole('button',{name:'接続・バックアップ',exact:true}).click();const waiting=page.waitForEvent('download');await page.locator('#backup').click();const file=await waiting;return JSON.parse(await readFile(await file.path(),'utf8'));} // 実画面からDB内容と送信待ちを取得します。
 async function awaitVersion(page,scope,stage){ // 通信で取得したconfigではなく本当のService Worker応答を調べます。
-  const result=await page.waitForFunction(async({scope,stage})=>{const registration=await navigator.serviceWorker.getRegistration(scope);const worker=stage==='ready'?(registration?.waiting||registration?.active):registration?.active;if(!worker)return false;return new Promise(resolve=>{let timer;const finish=value=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',listener);resolve(value);};const listener=event=>{if(event.data?.type==='offlineStatus')finish(event.data.version==='1.0.0'&&event.data.appShellReady===true?event.data:false);};navigator.serviceWorker.addEventListener('message',listener);timer=setTimeout(()=>finish(false),1500);worker.postMessage({type:'offlineCheck'});});},{scope,stage},{timeout:30000,polling:200}); // 事前取得と版が一致するまで完了にせず上限時間で失敗させます。
-  return result.jsonValue(); // 実際に応答した版を試験結果へ残します。
+  const deadline=Date.now()+30000;let last=null; // 準備待機に上限を設け最後の実応答を残します。
+  while(Date.now()<deadline){ // テスト自体の再試行ではなく更新の準備完了だけを待ちます。
+    last=await page.evaluate(async({scope,stage})=>{const registration=await navigator.serviceWorker.getRegistration(scope);const worker=stage==='ready'?(registration?.waiting||registration?.active):registration?.active;if(!worker)return null;return new Promise(resolve=>{let timer;const finish=value=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',listener);resolve(value);};const listener=event=>{if(event.source===worker&&event.data?.type==='offlineStatus')finish(event.data);};navigator.serviceWorker.addEventListener('message',listener);timer=setTimeout(()=>finish(null),1500);worker.postMessage({type:'offlineCheck'});});},{scope,stage}); // evaluateで非同期応答を最後まで待ちPromise自体を成功と判定しません。
+    if(last?.version==='1.0.0'&&last.appShellReady===true)return last; // 版と全資産の事前取得が一致した応答だけを受け入れます。
+    await new Promise(done=>setTimeout(done,200)); // ブラウザの正常なインストールと有効化を妨げません。
+  } // 制限時間内の待機を終了します。
+  throw new Error('SERVICE_WORKER_VERSION_TIMEOUT '+stage+' '+JSON.stringify(last)); // 未準備の状態を公開可能と扱いません。
 } // 更新の準備完了判定を閉じます。
 for(const [name,engine]of Object.entries({chromium,webkit})){ // 各ブラウザで新しい合成端末を用意します。
   const root=await mkdtemp(join(tmpdir(),'zero-one-upgrade-'));const home=join(root,'home');await mkdir(home);const env={...process.env,HOME:home,CFFIXED_USER_HOME:home,XDG_DATA_HOME:join(home,'data'),XDG_CACHE_HOME:join(home,'cache'),XDG_CONFIG_HOME:join(home,'config')}; // OS保存領域を分離します。
