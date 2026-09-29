@@ -17,6 +17,7 @@ await copyFile('production/browser-check.mjs',join(app,'tools/production-scenari
 await writeFile(join(app,'tools/production-browser.mjs'),"await import('./production-scenarios.mjs'); // 保存とコピーを実際の画面で検証します。\nif(!process.env.SITE_URL&&!process.exitCode)await import('./upgrade-check.mjs'); // 公開前は旧データの保持も検証します。\n"); // 失敗した場合は公開しません。
 execFileSync(process.execPath,['production/network-fix.mjs',app],{stdio:'inherit'}); // ネイティブfetchの呼出元だけを修正して1.0.1へ更新します。
 execFileSync(process.execPath,['production/save-ux.mjs',app],{stdio:'inherit'}); // 保存操作と同期の表示だけを1.0.2へ更新します。
+execFileSync(process.execPath,['production/save-status-errors.mjs',app],{stdio:'inherit'}); // 同期開始前の通信失敗も再試行状態として表示します。
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.0.2'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
 const files=[]; // 公開バイトの証拠を収集します。
