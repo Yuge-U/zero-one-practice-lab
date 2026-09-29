@@ -1,0 +1,9 @@
+import {mediaAssert,mediaRef} from './media-model.mjs'; // 同期対象のメタデータを確認します。
+export class MediaSession{ // 大容量の添付送信を計画保存のWorkerとは別に進めます。
+  constructor(store,getCloud,onChange=()=>{}){this.store=store;this.getCloud=getCloud;this.onChange=onChange;this.refs=[];this.status=new Map();this.errors=new Map();this.busy=false;this.done=0;this.total=0;this.again=false;this.closed=false;this.promise=null;this.controller=new AbortController();} // アカウントごとに送信状態を分離します。
+  update(refs=[]){this.refs=refs.map(mediaRef);this.onChange();} // 保存済みの一覧だけを受け取り、未保存添付は送りません。
+  async sync(){if(this.closed||!this.refs.length)return;if(this.busy){this.again=true;return this.promise;}this.busy=true;this.done=0;this.total=this.refs.length;this.errors.clear();this.onChange();this.promise=this.execute();return this.promise;} // 二重送信を防ぎ、追加保存時だけ再確認を予約します。
+  async execute(){try{const cloud=await this.getCloud(this.controller.signal);for(const ref of [...this.refs]){if(this.closed)break;this.status.set(ref.hash,'sending');this.onChange();try{await cloud.sync(ref);if(!this.closed)this.status.set(ref.hash,'remote');}catch(error){if(this.closed)break;this.status.set(ref.hash,'pending');this.errors.set(ref.hash,error.message||'写真・動画の同期が未完了です。');}this.done++;this.onChange();}}catch(error){if(!this.closed)for(const ref of this.refs){this.status.set(ref.hash,'pending');this.errors.set(ref.hash,error.message||'写真・動画の同期が未完了です。');}}finally{this.busy=false;this.onChange();const again=this.again;this.again=false;if(again&&!this.closed)queueMicrotask(()=>this.sync());}} // 添付が失敗しても成功した計画保存を取り消しません。
+  summary(){const count=this.refs.length,remote=this.refs.filter(r=>this.status.get(r.hash)==='remote').length;return {count,remote,pending:count-remote,busy:this.busy,done:this.done,total:this.total,error:[...this.errors.values()][0]||''};} // 計画の同期とは別に添付の実状態を表示します。
+  close(){this.closed=true;this.controller.abort();this.store.close();} // 認証切替時に送信を止め、端末の実ファイルは残します。
+} // 大容量添付の送信管理を閉じます。
