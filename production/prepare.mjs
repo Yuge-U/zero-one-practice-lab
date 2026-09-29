@@ -27,6 +27,7 @@ execFileSync(process.execPath,['production/reference-update.mjs',app],{stdio:'in
 execFileSync(process.execPath,['production/reference-gates.mjs',app],{stdio:'inherit'}); // 既存参照検証も維持します。
 await cp(join(app,'web'),join(app,'pre-media-web'),{recursive:true}); // 直前の1.2.1を互換性検査用に保持します。
 execFileSync(process.execPath,['production/media-update.mjs',app],{stdio:'inherit'}); // 任意の写真・動画添付と専用試験を1.3.0へ追加します。
+execFileSync(process.execPath,['production/media-gates.mjs',app],{stdio:'inherit'}); // メタデータ先読みと模擬HTTPの診断を検証へ追加します。
 await copyFile('production/media/media-compatibility.test.mjs',join(app,'tests/media-compatibility.test.mjs')); // 参考資料と旧版の互換性を確認します。
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.0'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
