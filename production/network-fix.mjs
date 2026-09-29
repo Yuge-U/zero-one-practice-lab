@@ -16,6 +16,11 @@ for(const name of ['tools/production-scenarios.mjs','tools/upgrade-check.mjs']){
   const path=join(root,name);const text=await readFile(path,'utf8');const before='1\\.0\\.0';assert.equal(text.split(before).length,2,name); // 旧版用の期待値が一箇所にあることを確認します。
   await writeFile(path,text.replace(before,'1\\.0\\.1')); // 保存・コピー・データ保持の条件は一切変えません。
 } // バージョン正規表現の更新を終えます。
+const upgradePath=join(root,'tools/upgrade-check.mjs');let upgrade=await readFile(upgradePath,'utf8'); // 同一プロファイル更新試験で閉じるタブを漏れなく検査します。
+const closeBefore='await page.close();page=observer;';assert.equal(upgrade.split(closeBefore).length,2); // 一つの追跡タブしか閉じていなかった箇所を限定します。
+upgrade=upgrade.replace(closeBefore,"const closedPageUrls=context.pages().filter(candidate=>candidate!==observer).map(candidate=>candidate.url());for(const candidate of context.pages())if(candidate!==observer)await candidate.close();assert.equal(context.pages().length,1);assert.equal(await observer.evaluate(()=>navigator.serviceWorker.controller?.scriptURL||null),null);console.log('Closed all app tabs before upgrade',name,JSON.stringify(closedPageUrls));page=observer;"); // 自動復元したタブも閉じてから通常のWorker更新を待ちます。
+upgrade=upgrade.replace('copyCreated:true','copyCreated:true,closedPageUrls'); // 実際に閉じたページを合否と一緒に記録します。
+await writeFile(upgradePath,upgrade); // 待機時間・版・DB完全一致条件は緩めません。
 await copyFile('production/network-browser.mjs',join(root,'tools/network-browser.mjs')); // ネイティブ通信を使うブラウザ回帰試験を配置します。
 await copyFile('production/network.test.mjs',join(root,'tests/network.test.mjs')); // 呼出元を厳密に確認する単体試験を配置します。
 console.log('Bound native fetch to its global receiver. Storage, identity, permissions and redirect restrictions unchanged.'); // 実際の変更範囲を記録します。
