@@ -1,135 +1,137 @@
-name: ZERO ONE PRACTICE production release # 検証後に本人の公開先だけを更新します。
-on: # リリース用のブランチと本番の更新を受け付けます。
-  push: # アプリと検証条件の更新を対象にします。
-    branches: [main, release/practice-1-0] # 検証ブランチからは公開しません。
-    paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明だけの変更は再公開しません。
-  workflow_dispatch: # 本人による再実行の入口です。
-permissions: # 通常のジョブは読取に限定します。
-  contents: read # 個人データへのアクセス権はありません。
-concurrency: # 同じブランチのリリースを並行させません。
-  group: practice-production-${{ github.ref }} # 本番と検証を独立させます。
-  cancel-in-progress: false # 進行中の公開を途中で切りません。
-jobs: # ビルド・公開・実URLの確認を分離します。
-  build: # 同一コードを両OSで事前検証します。
-    if: github.repository == 'Yuge-U/zero-one-practice-lab' # 公開先の誤りを防ぎます。
-    strategy: # 片方の失敗でも他方の結果を残します。
-      fail-fast: false # 全環境の証拠を取得します。
-      matrix: # iPhoneそのものではなく検証用OSを使います。
-        os: [ubuntu-24.04, macos-15] # 既に確認した二つの環境です。
-    runs-on: ${{ matrix.os }} # 合成データ用の実行環境です。
-    timeout-minutes: 15 # 永久待機を防ぎます。
-    steps: # 準備・テスト・成果物の順に進めます。
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 検証済みの取得アクションを固定します。
-        with: # 長期認証を残しません。
-          persist-credentials: false # 認証情報を公開物に含めません。
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 合格済みの旧版を基準として取得します。
-        with: # 固定したソース以外へ追随しません。
-          repository: Yuge-U/basketball-tactics-board # 元アプリへは書き込みません。
-          ref: b9390aa320ec39a19f649849a1111e26e4968453 # v0.3.2の検査済み基準です。
-          path: upstream # 本番と別の作業コピーにします。
-          persist-credentials: false # 作業コピーにも認証を残しません。
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 実行環境を固定します。
-        with: # 保存試験と同じNodeを使用します。
-          node-version: '22.16.0' # 実SQLiteを含む実行版です。
-      - name: Verify baseline and prepare production candidate # 既存データの場所を維持した更新を作ります。
-        env: # 公開部品の取得ステップだけに権限を渡します。
-          GH_TOKEN: ${{ github.token }} # 許可したGitHubの取得に限定して使用します。
-          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # 承認画像の変換環境を固定します。
-        run: | # 旧版のバイト照合から新しい版へ進みます。
-          python3 -m venv .image-env # OSのPython環境を変更しない変換専用領域です。
-          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 画像の寸法変換だけに使用する固定版です。
-          node tools/build-release.mjs # 既存28ファイルの一致を確認します。
-          node production/prepare.mjs # 新版の許可ファイルだけを生成して照合します。
-      - name: Install pinned browsers # 新しい検証領域へ依存を準備します。
-        working-directory: upstream/practice-ui-lab/app # 公開領域へテスト依存を混ぜません。
-        run: | # 固定版の検証ツールだけを使用します。
-          npm install --no-save --ignore-scripts playwright@1.63.0 # ライフサイクルスクリプトを実行しません。
-          npx playwright install --with-deps chromium webkit # 二つの実エンジンを用意します。
-      - name: Verify copy semantics and existing browser scenarios # 元データ保護と既存機能を検証します。
-        working-directory: upstream/practice-ui-lab/app # 共通保存処理を実行します。
-        run: | # どれかの不合格で公開を停止します。
-          node --test tests/production.test.mjs # 原本保護・コピー・入力確認の15試験です。
-          node tools/browser-project.mjs # 既存11シナリオを各エンジンで再確認します。
-      - name: Verify production save and copy through real UI # 新規・コピー・通信断を実画面で操作します。
-        working-directory: upstream/practice-ui-lab/app # 模擬DBでなく実際のブラウザ保存です。
-        run: node tools/production-browser.mjs # 14シナリオを各ブラウザで実行します。
-      - name: Keep test evidence and exact runtime # 不合格も隠さず証拠を保存します。
-        if: always() # 途中失敗の理由を取得できます。
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 公式の保存アクションを固定します。
-        with: # 個人のDBや認証トークンは含みません。
-          name: practice-production-${{ matrix.os }} # OSごとの証拠を区別します。
-          path: | # 公開ソースと合成データの結果だけです。
+name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します。
+on: # 修正ブランチでは検証だけ行います。
+  push: # コード変更を検証します。
+    branches: [main, release/practice-1-0, fix/onedrive-fetch-101] # 本番以外からは配信しません。
+    paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 公開関連の変更だけを対象にします。
+  workflow_dispatch: # 本人による再実行を許可します。
+permissions: # 既定は読取のみです。
+  contents: read # 本人OneDriveへは接続しません。
+concurrency: # 同じブランチの処理を順番にします。
+  group: practice-production-${{ github.ref }} # 本番と修正を分離します。
+  cancel-in-progress: false # 公開途中で中断しません。
+jobs: # ビルドと配信を分けます。
+  build: # 両OSで同じ公開バイトを検証します。
+    if: github.repository == 'Yuge-U/zero-one-practice-lab' # 対象をこのアプリに限定します。
+    strategy: # 全環境の結果を残します。
+      fail-fast: false # 他方のエラーで打ち切りません。
+      matrix: # 実機iPhoneではありません。
+        os: [ubuntu-24.04, macos-15] # 既存の検証環境を維持します。
+    runs-on: ${{ matrix.os }} # OS別に確認します。
+    timeout-minutes: 15 # 無期限に実行しません。
+    steps: # 既存の保存・コピー試験も残します。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 固定したソース取得処理です。
+        with: # 認証情報を残しません。
+          persist-credentials: false # 作業用の認証設定を保存しません。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 旧版を読取専用で取得します。
+        with: # 可変ブランチへ追随しません。
+          repository: Yuge-U/basketball-tactics-board # 元アプリへ書き込みません。
+          ref: b9390aa320ec39a19f649849a1111e26e4968453 # 検証した基準を固定します。
+          path: upstream # 作業コピーを分離します。
+          persist-credentials: false # 認証を残しません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 同じ実行環境を用意します。
+        with: # 旧試験と合わせます。
+          node-version: '22.16.0' # 実行版を固定します。
+      - name: Verify baseline and prepare production candidate # 全公開ファイルを照合します。
+        env: # 読取用の短期認証です。
+          GH_TOKEN: ${{ github.token }} # Microsoftの資格情報ではありません。
+          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # アイコン変換用です。
+        run: | # 既存のビルドと画像を維持します。
+          python3 -m venv .image-env # OS本体から変換環境を分離します。
+          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 元と同じ変換版です。
+          node tools/build-release.mjs # 0.3.2の検査値を確認します。
+          node production/prepare.mjs # 1.0.1の限定差分を適用します。
+      - name: Install pinned browsers # 両エンジンを準備します。
+        working-directory: upstream/practice-ui-lab/app # 公開領域とは分離します。
+        run: | # 固定したツールを使います。
+          npm install --no-save --ignore-scripts playwright@1.63.0 # ライフサイクルは実行しません。
+          npx playwright install --with-deps chromium webkit # WebKitも省略しません。
+      - name: Check native network receiver and cloud-open flow # 模擬fetchでは見逃した不具合を再現します。
+        working-directory: upstream/practice-ui-lab/app # 配信するコード自体を検証します。
+        run: | # 本人認証や実クラウドは使いません。
+          node --test tests/production.test.mjs tests/network.test.mjs # 原本保護と新しい通信境界を確認します。
+          node tools/network-browser.mjs # 旧版の通信前失敗と修正版のHTTP到達を比較します。
+      - name: Check existing UI and data upgrade # 元の受入条件を残します。
+        working-directory: upstream/practice-ui-lab/app # 同じ公開候補を操作します。
+        run: | # 両方が成功しなければ公開しません。
+          node tools/browser-project.mjs # 既存11シナリオを実行します。
+          node tools/production-browser.mjs # 保存・コピーと旧データ保持を確認します。
+      - name: Preserve evidence # 失敗も保存します。
+        if: always() # 途中失敗の証拠を残します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 固定した公式アクションです。
+        with: # 合成データだけの成果物です。
+          name: practice-production-${{ matrix.os }} # OS別に保管します。
+          path: | # 公開コードと試験結果だけです。
             reports/
             upstream/practice-ui-lab/app/reports/
             upstream/practice-ui-lab/app/web/
             upstream/practice-ui-lab/app/tools/
-          retention-days: 14 # 再確認のため保持します。
-      - name: Package tested public site # 本番ブランチの成功時だけ公開物を作ります。
-        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04' # 検証ブランチでは公開しません。
-        uses: actions/upload-pages-artifact@v4 # 公式Pages用のパッケージ化です。
-        with: # ソース・ログやDBは配信対象外です。
-          path: _site # ハッシュ照合済みファイルだけを指定します。
-  deploy: # 両OSで合格した同じ版だけを公開します。
-    needs: build # 両OSと全試験の成功を要求します。
-    if: github.ref == 'refs/heads/main' # 明示した本番反映だけ受け付けます。
-    runs-on: ubuntu-24.04 # このリポジトリのPagesだけを更新します。
-    timeout-minutes: 10 # 公開待ちを制限します。
+          retention-days: 14 # 検証ログを保持します。
+      - name: Package tested public site # 本番コミットだけを梱包します。
+        if: github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-24.04' # 修正ブランチでは公開しません。
+        uses: actions/upload-pages-artifact@v4 # Pages用の公式形式です。
+        with: # ログとDBを含めません。
+          path: _site # 検証済み静的ファイルだけです。
+  deploy: # 全事前検証が成功してから配信します。
+    needs: build # 両OSの成功を要求します。
+    if: github.ref == 'refs/heads/main' # 本番更新だけを許可します。
+    runs-on: ubuntu-24.04 # 既存の配信先を維持します。
+    timeout-minutes: 10 # 配信待ちを制限します。
     permissions: # このジョブだけ配信権限を持ちます。
-      pages: write # 既存アプリのPagesは変更しません。
-      id-token: write # GitHubの短期認証を使用します。
-    environment: # 既存の公開環境を維持します。
-      name: github-pages # 同じサイトを更新します。
-      url: ${{ steps.deployment.outputs.page_url }} # 公開処理の返したURLを使用します。
-    outputs: # 次の試験へ実URLを渡します。
-      page_url: ${{ steps.deployment.outputs.page_url }} # URLを勝手に変更しません。
-    steps: # 合格した成果物だけを配信します。
-      - name: Publish production app # 保存場所を変えずに更新します。
-        id: deployment # 配信結果を参照する名前です。
-        uses: actions/deploy-pages@v4 # 公式のPages配信処理です。
-  verify-live: # 配信成功とアプリの成功を区別して確認します。
-    needs: deploy # 本番の公開完了後にだけ実行します。
-    runs-on: ubuntu-24.04 # 本人の端末とは別の検証です。
-    timeout-minutes: 15 # 実URL検査にも上限を設けます。
-    steps: # 公開コードの取得から実操作まで確認します。
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 同じリリースコミットを取得します。
-        with: # 認証を残しません。
-          persist-credentials: false # 公開コードの読取だけです。
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 検査用サーバーモジュールも同じ版を用意します。
-        with: # コピー元を固定します。
-          repository: Yuge-U/basketball-tactics-board # 元の公開アプリへは変更しません。
-          ref: b9390aa320ec39a19f649849a1111e26e4968453 # 合格済みの元コードです。
-          path: upstream # 本番配信とは別の検査用コピーです。
-          persist-credentials: false # トークンをファイルへ保存しません。
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 固定環境を再現します。
-        with: # 事前検査と合わせます。
-          node-version: '22.16.0' # 検証済み実行版です。
-      - name: Prepare read-only verification # 公開先を変更せず検証コードだけ準備します。
-        env: # 公開GitHub部品の取得に限定します。
-          GH_TOKEN: ${{ github.token }} # Microsoftの資格情報ではありません。
-          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # 検証時も同じ画像を再現します。
-        run: | # 一致を再確認して実操作の準備をします。
-          python3 -m venv .image-env # 検査専用のPythonを作ります。
-          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 同じ変換条件を使います。
-          node tools/build-release.mjs # 旧版の基準を照合します。
-          node production/prepare.mjs # 公開物と同じ検査コードを用意します。
-          cd upstream/practice-ui-lab/app # テスト依存を専用領域へ配置します。
-          npm install --no-save --ignore-scripts playwright@1.63.0 # 固定したランナーを使用します。
-          npx playwright install --with-deps chromium webkit # 公開URLの実ブラウザを用意します。
-      - name: Verify public HTTPS bytes # 公開された全バイトを取得して一致を確認します。
-        env: # Pagesからの実URLを受け取ります。
-          SITE_URL: ${{ needs.deploy.outputs.page_url }} # 許可したURL以外はスクリプトで拒否します。
-        run: node production/check-public.mjs # 事前検査と公開物のズレを検出します。
-      - name: Save and copy on actual public HTTPS # 本人のOneDriveには接続しません。
-        working-directory: upstream/practice-ui-lab/app # 実URLからコードを読み込んで試験します。
-        env: # ローカルサーバーではなく公開URLを選択します。
-          SITE_URL: ${{ needs.deploy.outputs.page_url }} # 合成ゲスト記録だけを保存します。
-        run: node tools/production-browser.mjs # 原本を残すコピーと保存を実操作で再確認します。
-      - name: Keep measured public-site evidence # 実際の公開後結果を保存します。
-        if: always() # 失敗結果も残します。
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 公式の証拠保存を使用します。
-        with: # 個人情報と本番の練習は含みません。
-          name: practice-production-live # 公開前の検査とは分けます。
-          path: | # 結果と実画面だけを保持します。
+      pages: write # このアプリのPagesを更新します。
+      id-token: write # GitHubの短期認証を使います。
+    environment: # 公開環境は変えません。
+      name: github-pages # 既定環境を維持します。
+      url: ${{ steps.deployment.outputs.page_url }} # 実際の配信URLを記録します。
+    outputs: # 公開後確認へ渡します。
+      page_url: ${{ steps.deployment.outputs.page_url }} # 配信結果のURLを使用します。
+    steps: # 検証済み成果物だけを配信します。
+      - name: Publish production app # 既存アプリやOneDriveには変更しません。
+        id: deployment # 配信結果の参照名です。
+        uses: actions/deploy-pages@v4 # 公式の配信処理を使います。
+  verify-live: # 公開後の実URLを別途確認します。
+    needs: deploy # 配信完了後に開始します。
+    runs-on: ubuntu-24.04 # 合成プロファイルだけを使用します。
+    timeout-minutes: 15 # 検証待ちに上限を設けます。
+    steps: # 同じコードと実行環境を再現します。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # このリリースを取得します。
+        with: # 認証は保存しません。
+          persist-credentials: false # 公開ソースの読取です。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 基準ソースを読みます。
+        with: # 元の公開先は触りません。
+          repository: Yuge-U/basketball-tactics-board # 元アプリは読取のみです。
+          ref: b9390aa320ec39a19f649849a1111e26e4968453 # 版を固定します。
+          path: upstream # 検証用コピーです。
+          persist-credentials: false # 認証を残しません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 固定した実行環境です。
+        with: # 事前検証と合わせます。
+          node-version: '22.16.0' # 同じ版で確認します。
+      - name: Prepare verification # 本人データを取得せず検証を準備します。
+        env: # 公開コード読取用です。
+          GH_TOKEN: ${{ github.token }} # 本人Microsoftトークンは使いません。
+          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # 同じ画像変換環境です。
+        run: | # 公開バイトを再現します。
+          python3 -m venv .image-env # 検証環境を分離します。
+          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 固定変換条件です。
+          node tools/build-release.mjs # 基準を照合します。
+          node production/prepare.mjs # 新版のバイトを再現します。
+          cd upstream/practice-ui-lab/app # 検証コードへ移動します。
+          npm install --no-save --ignore-scripts playwright@1.63.0 # 固定ランナーを使用します。
+          npx playwright install --with-deps chromium webkit # 両エンジンを用意します。
+      - name: Verify public HTTPS bytes # 公開後の全バイトを照合します。
+        env: # 配信結果のURLを使います。
+          SITE_URL: ${{ needs.deploy.outputs.page_url }} # 別サイトを検査しません。
+        run: node production/check-public.mjs # 配信中の修正版を確認します。
+      - name: Save and copy on public HTTPS # 本人領域へは接続しません。
+        working-directory: upstream/practice-ui-lab/app # 実URLからアプリを起動します。
+        env: # ローカル試験と区別します。
+          SITE_URL: ${{ needs.deploy.outputs.page_url }} # 公開URLを渡します。
+        run: node tools/production-browser.mjs # ゲストの合成練習を保存・コピーします。
+      - name: Preserve public-site evidence # 公開後の結果を残します。
+        if: always() # 失敗時も証拠を保存します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 固定した保存処理です。
+        with: # 本人データは含みません。
+          name: practice-production-live # 事前検証とは別にします。
+          path: | # 実URLの結果だけです。
             reports/live-files.json
             upstream/practice-ui-lab/app/reports/production-live/
-          retention-days: 14 # 実測証拠を残します。
+          retention-days: 14 # 後日確認できる期間です。
