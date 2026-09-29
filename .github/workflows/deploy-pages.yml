@@ -1,7 +1,7 @@
 name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します。
 on: # 本番以外は検証専用です。
   push: # 公開物の変更を検証します。
-    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102] # 修正ブランチからは公開しません。
+    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103] # 修正ブランチからは公開しません。
     paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明だけで再公開しません。
   workflow_dispatch: # 本人が再実行できます。
 permissions: # 通常は読取専用です。
@@ -39,7 +39,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           python3 -m venv .image-env # 変換環境を分離します。
           .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 承認画像の条件を維持します。
           node tools/build-release.mjs # 旧版を照合します。
-          node production/prepare.mjs # 保存先を変えず1.0.2の表示へ更新します。
+          node production/prepare.mjs # 保存先を変えず1.0.3の表示へ更新します。
       - name: Install pinned browsers # 実ブラウザを準備します。
         working-directory: upstream/practice-ui-lab/app # テスト依存を公開物に混ぜません。
         run: | # 固定版を使います。
