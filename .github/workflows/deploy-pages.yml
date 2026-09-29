@@ -1,0 +1,96 @@
+name: ZERO ONE PRACTICE verified Pages release # 検証済み版だけを新規サイトへ公開します。
+on: # mainへの明示更新と手動実行だけを受け付けます。
+  push: # 公開コードや検査条件の変更を対象にします。
+    branches: [main] # 既存アプリのブランチとは無関係です。
+    paths: ['release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明文だけの更新で再公開しません。
+  workflow_dispatch: # 必要な場合に本人が再実行できます。
+permissions: # 通常のジョブは読取だけにします。
+  contents: read # リポジトリへのコード書込みは行いません。
+concurrency: # 同じサイトを並行して差し替えません。
+  group: practice-pages-release # この新規リポジトリ専用の制御名です。
+  cancel-in-progress: false # 進行中の公開を途中で切りません。
+jobs: # 検証・公開・公開後確認を分離します。
+  build: # 既存の合格版を再構成して照合します。
+    if: github.repository == 'Yuge-U/zero-one-practice-lab' && github.ref == 'refs/heads/main' # 意図した公開先に限定します。
+    runs-on: ubuntu-24.04 # 検証済みのOS系統を使用します。
+    timeout-minutes: 15 # 無期限の処理を禁止します。
+    steps: # 準備からブラウザ試験まで順番に実行します。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 検証時に使用したcheckoutを固定します。
+        with: # 認証情報を作業ファイルに残しません。
+          persist-credentials: false # Gitの恒久認証設定を避けます。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 旧検証版の公開ソースを読取だけで取得します。
+        with: # 可変ブランチでなく検証したコミットを指定します。
+          repository: Yuge-U/basketball-tactics-board # 既存アプリ側へは何も書き込みません。
+          ref: b9390aa320ec39a19f649849a1111e26e4968453 # v0.3.2公開前試験で使った版です。
+          path: upstream # ビルド用コピーを明示的に分けます。
+          persist-credentials: false # コピー先にトークンを保持しません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 検証済みのNodeセットアップを固定します。
+        with: # 実行系も固定して再現性を保ちます。
+          node-version: '22.16.0' # 既存試験のNodeと同じ版です。
+      - name: Verify exact release bytes # 取得部品とアプリの全公開ファイルを照合します。
+        env: # このステップに限り公開GitHub部品の取得用トークンを渡します。
+          GH_TOKEN: ${{ github.token }} # 元スクリプトは許可したGitHub宛先にのみ送信します。
+        run: node tools/build-release.mjs # 28ファイルが一致しなければ公開しません。
+      - name: Install pinned browser engines # クリーンなCIで試験用ブラウザを準備します。
+        working-directory: upstream/practice-ui-lab/app # 公開フォルダの外へ依存関係を置きます。
+        run: | # 自動ライフサイクルスクリプトは実行しません。
+          npm install --no-save --ignore-scripts playwright@1.63.0 # 既存試験と同じPlaywrightを取得します。
+          npx playwright install --with-deps chromium webkit # 二つの実エンジンを用意します。
+      - name: Test Pages layout before deployment # 実行しなかった試験を合格扱いしません。
+        working-directory: upstream/practice-ui-lab/app # 元の合格シナリオをそのまま使用します。
+        run: node tools/browser-project.mjs # 11シナリオを各エンジンで実行します。
+      - name: Keep build and test evidence # 公開前の実結果を保存します。
+        if: always() # 不合格の場合も証拠を残します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 検証済みの成果物保存アクションを固定します。
+        with: # 証拠はPagesの外で管理します。
+          name: practice-release-preflight # 個人情報を含まない結果です。
+          path: | # 本文や本人OneDriveのファイルは存在しません。
+            reports/
+            upstream/practice-ui-lab/app/reports/
+          retention-days: 14 # 検証証拠を一定期間保持します。
+      - name: Package only checked static app # 前のテストが全て成功した場合だけ実行します。
+        uses: actions/upload-pages-artifact@v4 # GitHub公式のPages用成果物を作ります。
+        with: # リポジトリ全体を公開しません。
+          path: _site # 照合済みの28ファイルだけを選びます。
+  deploy: # 公開に必要な権限はこのジョブだけへ付与します。
+    needs: build # ブラウザ検証の不合格時には起動しません。
+    runs-on: ubuntu-24.04 # 新しい公開先への配信だけを実行します。
+    timeout-minutes: 10 # 公開待ち時間を制限します。
+    permissions: # 公式Pagesが必要とする最小範囲です。
+      pages: write # このリポジトリのPagesへ配信します。
+      id-token: write # GitHubが公開元を確認する短期認証を使用します。
+    environment: # Pages側の公開制御を適用します。
+      name: github-pages # 既定の公開環境を使います。
+      url: ${{ steps.deployment.outputs.page_url }} # 実際に公開されたURLを表示します。
+    outputs: # 公開後の試験へ確定URLを渡します。
+      page_url: ${{ steps.deployment.outputs.page_url }} # 手作業でURLを作りません。
+    steps: # 検証済み成果物だけを配信します。
+      - name: Deploy checked lab # 既存CANVAS・TERMINOLOGYの公開先は変更しません。
+        id: deployment # 確定した公開結果を参照できる名前です。
+        uses: actions/deploy-pages@v4 # GitHub公式の配信処理です。
+  verify-live: # 公開成功と公開サイトの実動作を分けて確認します。
+    needs: deploy # 公開された後に実HTTPSへアクセスします。
+    runs-on: ubuntu-24.04 # 使い捨ての検証環境で確認します。
+    timeout-minutes: 10 # 動作確認の時間を制限します。
+    steps: # 実URLの配信とブラウザ操作を検査します。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # このリポジトリの検査コードだけを取得します。
+        with: # 認証情報を残しません。
+          persist-credentials: false # 端末側の長期認証設定を作りません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 固定した実行環境を用意します。
+        with: # 既存試験と環境を合わせます。
+          node-version: '22.16.0' # 検証に使った版を指定します。
+      - name: Prepare browser verification # 個人アカウントなしのブラウザを準備します。
+        run: | # 依存コードは公開サイトには含めません。
+          npm install --no-save --ignore-scripts playwright@1.63.0 # 固定した検証ツールだけを取得します。
+          npx playwright install --with-deps chromium webkit # HTTPSの実画面を二つのエンジンで開きます。
+      - name: Verify actual public HTTPS app # 本人OneDriveへは接続しません。
+        env: # 配信処理が返したURLを使います。
+          SITE_URL: ${{ needs.deploy.outputs.page_url }} # 検査スクリプトでも対象URLを限定します。
+        run: node tools/verify-live.mjs # ゲストの合成データだけで保存と再読込を確認します。
+      - name: Keep public-site evidence # 公開後の実際の結果を保存します。
+        if: always() # 失敗時も結果と画面を残します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 固定した公式成果物アクションを使用します。
+        with: # サイトとは別に証拠を保管します。
+          name: practice-live-https # 物理iPhoneの試験とは区別します。
+          path: reports/live/ # 合成データの画面と検査結果だけです。
+          retention-days: 14 # 実測ログを一定期間参照できます。
