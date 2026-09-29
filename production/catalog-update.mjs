@@ -1,0 +1,52 @@
+import {readFile,writeFile,copyFile} from 'node:fs/promises'; // ビルド候補だけを更新します。
+import {resolve,join} from 'node:path'; // 作業領域を限定します。
+import assert from 'node:assert/strict'; // 既知の版だけへ適用します。
+const root=resolve(process.argv[2]),web=join(root,'web'); // 1.0.3を基準に更新します。
+function replace(text,before,after,count=1){assert.equal(text.split(before).length-1,count,'1.1.0 patch mismatch: '+before.slice(0,90));return text.replaceAll(before,after);} // 置換件数を検査します。
+function line(text,start,after){const lines=text.split('\n').filter(s=>s.startsWith(start));assert.equal(lines.length,1,start);return text.replace(lines[0],after);} // 一行関数の変更箇所を限定します。
+for(const name of ['catalog.mjs','picker.mjs'])await copyFile('production/'+name,join(web,name)); // 検索の共通部品を配置します。
+await copyFile('production/auth-compact.mjs',join(web,'auth.mjs')); // アプリIDと保存境界を維持して認証を簡略化します。
+let app=await readFile(join(web,'app.mjs'),'utf8'); // 現行の画面制御を読みます。
+app="import {DEFAULT_CATEGORIES,NO_TERM,categoryName,categoryChoices,menuChoices,termChoices,matches} from './catalog.mjs'; // 大項目・メニュー・用語の候補を検索します。\nimport {createPicker} from './picker.mjs'; // iPhone対応の検索ダイアログです。\nconst picker=createPicker(); // 個人情報は安全なテキストとして表示します。\n"+app; // 既存の保存・同期操作を維持します。
+app=replace(app,"section:'BODY',name:''","section:'BODY',category:'',name:''"); // コーチング区分とは独立したカテゴリーを追加します。
+app=replace(app,'term:terms[0],termId:terms[0]?.ID','term:NO_TERM,termId:NO_TERM.ID'); // 無関係な先頭用語を自動選択しません。
+app=replace(app,"['section','name','minutes','variationName','rule']","['category','name','minutes','variationName','rule']"); // 旧sectionはデータに保持し、画面でカテゴリーを編集します。
+app=replace(app,'row.term=terms.find(t=>t.ID===termId);','row.term=termId===NO_TERM.ID?NO_TERM:terms.find(t=>t.ID===termId);'); // 用語なしを明示的に選択できます。
+app=replace(app,"const options=terms.map(t=>", "const options=[NO_TERM,...terms.filter(t=>t.ID!==NO_TERM.ID)].map(t=>"); // 内部の未指定は実カタログへ書き込みません。
+app=replace(app,'<label>区分<select data-field="section"><option>OPENING</option><option>BODY</option><option>CLOSING</option></select></label>','<label>カテゴリー<input data-field="category" aria-label="カテゴリー" value="${e(r.category||\'\')}" maxlength="80" placeholder="検索・選択・自由入力"><button type="button" data-category-picker="${index}" class="field-search">カテゴリーを選ぶ・追加</button></label>'); // 大項目を入力・検索できます。
+app=replace(app,'<input data-field="name"','<input data-field="name" aria-label="メニュー名"'); // 入力欄の名前を検索ボタンの文言から分離します。
+app=replace(app,'value="${e(r.name)}" required maxlength="160"></label>','value="${e(r.name)}" required maxlength="160"><button type="button" data-menu-picker="${index}" class="field-search">保存済みから選ぶ</button></label>'); // 選んだカテゴリーのメニューを再利用できます。
+app=replace(app,'<select data-field="termId">${options}</select></label>','<select data-field="termId">${options}</select><button type="button" data-term-picker="${index}" class="field-search">用語を検索</button></label>'); // 長い一覧を検索できます。
+app=replace(app,"card.querySelector('[data-field=\"section\"]').value=r.section;",''); // 非表示の旧進行区分を上書きしません。
+app=replace(app,"!['minutes','section'].includes(event.target.dataset.field)","!['minutes','category'].includes(event.target.dataset.field)"); // カテゴリー変更だけで作戦・用語の固定版を作り直しません。
+app=replace(app,"${e(item.section||'BODY')} · ${index+1}","${e(categoryName(item.category))} · ${index+1}"); // 保存済みの詳細も大項目で表示します。
+app=replace(app,"if(b.dataset.tab){","if(b.dataset.categoryPicker!==undefined)openCategoryPicker(Number(b.dataset.categoryPicker));if(b.dataset.menuPicker!==undefined)openMenuPicker(Number(b.dataset.menuPicker));if(b.dataset.termPicker!==undefined)openTermPicker(Number(b.dataset.termPicker));if(b.dataset.tab){"); // 検索と既存操作を一つのイベント経路で処理します。
+app=replace(app,"message(view.title+'。'+view.detail+(dirty?'\\n'+draftWarning(true):''));","message(dirty?draftWarning(true):'');"); // 同期カードと成功文の重複表示をなくします。
+app=line(app,"$('signIn').onclick=","$('signIn').onclick=()=>guard(()=>connectionAction(true)); // 明示した場合だけ別のアカウントを選びます。"); // 通常接続からアカウント選択の強制を外します。
+app=line(app,"$('connectCloud').onclick=","$('connectCloud').onclick=()=>guard(()=>connectionAction());$('quickConnect').onclick=()=>guard(()=>connectionAction()); // 認証とOneDrive接続を同じ入口へまとめます。"); // 初回だけ認証し、戻ったらフォルダーへ接続します。
+app=line(app,'function accountStatus()',"function accountStatus(){$('accountLabel').textContent=auth.account?auth.account.username:auth.offlineScope?'前回の端末記録を利用中（未認証）':'未接続 · この端末のみ';$('openOffline').disabled=Boolean(auth.account)||!auth.lastOfflineScope();$('rememberAccount').checked=auth.remember?.()??true;$('connectCloud').textContent=connecting?'接続中…':auth.needsInteraction?'再接続':cloudReady?'接続済み':'OneDriveに接続';$('connectCloud').disabled=connecting||sending||!initialized||(cloudReady&&!auth.needsInteraction);$('quickConnect').hidden=cloudReady&&!auth.needsInteraction;$('quickConnect').disabled=connecting||sending||!initialized;$('quickConnect').textContent=connecting?'接続中…':auth.needsInteraction?'再接続':'OneDriveに接続';$('signOut').hidden=!auth.account;$('signIn').disabled=connecting||sending;$('syncNow').hidden=!cloudReady;} // 通常画面は接続状態と必要な操作だけ表示します。"); // 詳細設定は折りたたみます。
+app=replace(app,'await connectCloud(false);','await connectCloud(auth.consumeConnectionIntent?.()||false);'); // 本人が接続を押して戻った場合だけ初回作成を許可します。
+app=replace(app,"document.querySelector('.save-dock').dataset.active=String(dirty||saving||$('saveFeedback').classList.contains('error'));","document.querySelector('.save-dock').dataset.active=String(dirty||saving||$('saveFeedback').classList.contains('error'));accountStatus();"); // 認証状態の変化を省スペース表示へ反映します。
+app+='\n'+await readFile('production/library-ui.fragment.mjs','utf8'); // 検索と一括接続の画面処理を追加します。
+app+="\n$('rememberAccount').onchange=()=>{auth.setRemember?.($('rememberAccount').checked);message('接続の保持設定は次回のサインインから適用します。共有端末ではサインアウトも行ってください。');}; // 保持するかは利用者が変更できます。\n"; // 長期キャッシュを独自に複製しません。
+await writeFile(join(web,'app.mjs'),app); // 画面制御を保存します。
+let html=await readFile(join(web,'index.html'),'utf8'); // 現行のフォームを維持します。
+html=replace(html,'<button id="syncNow"','<button id="quickConnect" disabled>OneDriveに接続</button><button id="syncNow"'); // 上部から一回で接続できます。
+const start=html.indexOf('<section class="panel"><h3>本人のOneDriveに接続</h3>'),end=html.indexOf('<section class="panel"><h3>既存データの読取</h3>');assert(start>0&&end>start); // 旧ログインパネルだけを置換します。
+const connection='<section class="panel connection-panel"><div class="connection-row"><h3>OneDrive</h3><button id="connectCloud" class="primary">OneDriveに接続</button></div><p id="accountLabel"></p><p class="subtle">接続すると本人の専用フォルダーを使って同期します。ゲストの記録は別保存です。</p><details><summary>接続設定・サインアウト</summary><label class="check"><input type="checkbox" id="rememberAccount" checked>この端末で接続を保持（共有端末ではオフ）</label><div class="actions"><button id="signIn">アカウントを選び直す</button><button id="signOut">サインアウト</button><button id="openOffline" disabled>前回の端末記録を開く</button></div><p class="subtle">保存先：ZERO_ONE_PRACTICE_LAB_V02。既存の作戦・用語データは変更しません。</p><p class="subtle">認証設定の戻り先：</p><code id="redirectUri"></code></details></section>'; // 詳しい認証情報は必要な時だけ開きます。
+html=html.slice(0,start)+connection+html.slice(end); // 保全操作や用語取込は削除しません。
+html=replace(html,'1回分の練習プランに、ウォーミングアップやドリルなどのメニューを組み合わせます。','カテゴリーで探し、保存済みメニューを選ぶと内容をコピーできます。新しいカテゴリーやメニュー名も自由入力できます。'); // 新しい操作の流れを説明します。
+await writeFile(join(web,'index.html'),html); // 公開画面を保存します。
+let planner=await readFile(join(web,'core/planner.mjs'),'utf8');planner="import {categoryName} from '../catalog.mjs'; // メニューの分類を正規化します。\n"+planner; // 旧進行区分とカテゴリーを別々に扱います。
+planner=replace(planner,"ensure(['OPENING','BODY','CLOSING'].includes(row.section)","ensure(row.category===undefined||typeof row.category==='string','INVALID','カテゴリーを文字で入力してください。');const category=categoryName(row.category??row.pinned?.category);text(category,'カテゴリー',80);ensure(['OPENING','BODY','CLOSING'].includes(row.section)"); // 未分類の旧データを含めて安全に検証します。
+planner=replace(planner,'section: row.section };','section: row.section, category };');planner=replace(planner,'section:row.section, minutes:','section:row.section, category, minutes:'); // コピー・新規の両方で分類を同期対象へ含めます。
+await writeFile(join(web,'core/planner.mjs'),planner); // 元の固定版や書込条件は維持します。
+let model=await readFile(join(web,'core/model.mjs'),'utf8');model=replace(model,"itemIds.add(item.id); text(item.name, '明細名');","itemIds.add(item.id); if(item.category!==undefined)text(item.category,'カテゴリー',80); text(item.name, '明細名');");await writeFile(join(web,'core/model.mjs'),model); // 旧操作のcategory欠如を許可し、追加フィールドを検証します。
+let draft=await readFile(join(web,'draft.mjs'),'utf8');draft=replace(draft,"section: item.section || 'BODY', name:","section: item.section || 'BODY', category:item.category||'', name:");draft=replace(draft,"required(item.name, 'name',", "if(item.category!==undefined&&typeof item.category!=='string')add('category',`${index+1}番目のカテゴリーを文字で入力してください。`,index);else if(String(item.category||'').normalize('NFKC').trim().length>80)add('category',`${index+1}番目のカテゴリーは80文字以内にしてください。`,index);required(item.name, 'name',");await writeFile(join(web,'draft.mjs'),draft); // 読込・コピー・エラー表示も分類を引き継ぎます。
+let css=await readFile(join(web,'series.css'),'utf8');css+=await readFile('production/catalog.css','utf8');await writeFile(join(web,'series.css'),css); // 保存や認証の領域をコンパクトにします。
+let sw=await readFile(join(web,'sw.js'),'utf8');sw=replace(sw,"'./save-status.mjs',","'./save-status.mjs','./catalog.mjs','./picker.mjs',");await writeFile(join(web,'sw.js'),sw); // 新しい部品をオフラインでも使えるようにします。
+for(const name of ['web/config.mjs','web/index.html','web/sw.js','web/core/service.mjs','tools/production-scenarios.mjs','tools/upgrade-check.mjs','tools/save-status-browser.mjs']){const path=join(root,name);const text=await readFile(path,'utf8');assert(text.includes('1.0.3'),name);await writeFile(path,text.replaceAll('1.0.3','1.1.0'));} // リリースとキャッシュの版を揃えます。
+for(const name of ['tools/production-scenarios.mjs','tools/upgrade-check.mjs']){const path=join(root,name);await writeFile(path,replace(await readFile(path,'utf8'),'1\\.0\\.3','1\\.1\\.0'));} // 保存・コピー・更新検証の版だけを更新します。
+const statusTest=join(root,'tools/save-status-browser.mjs');await writeFile(statusTest,replace(await readFile(statusTest,'utf8'),"await page.locator('#consentCloud').check();",'')); // 接続ボタンへ統合した確認手順だけ変更し、検証内容は残します。
+await copyFile('production/catalog.test.mjs',join(root,'tests/catalog.test.mjs'));await copyFile('production/catalog-browser.mjs',join(root,'tools/catalog-browser.mjs')); // 新しい単体・実画面検証を配置します。
+console.log('PRACTICE 1.1.0: categories, saved-menu reuse, term search and compact account connection.'); // 実施した変更範囲を記録します。
