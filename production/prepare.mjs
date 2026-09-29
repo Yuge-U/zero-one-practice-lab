@@ -16,10 +16,12 @@ await copyFile('production/draft.test.mjs',join(app,'tests/production.test.mjs')
 await copyFile('production/browser-check.mjs',join(app,'tools/production-scenarios.mjs'));await copyFile('production/upgrade-check.mjs',join(app,'tools/upgrade-check.mjs')); // 既存の実画面・更新試験を維持します。
 await writeFile(join(app,'tools/production-browser.mjs'),"await import('./production-scenarios.mjs'); // 保存とコピーを実際の画面で検証します。\nif(!process.env.SITE_URL&&!process.exitCode)await import('./upgrade-check.mjs'); // 公開前は旧データの保持も検証します。\n"); // 失敗した場合は公開しません。
 execFileSync(process.execPath,['production/network-fix.mjs',app],{stdio:'inherit'}); // ネイティブfetchの呼出元だけを修正して1.0.1へ更新します。
-const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.0.1'); // 許可した修正版だけを配信します。
+execFileSync(process.execPath,['production/save-ux.mjs',app],{stdio:'inherit'}); // 保存操作と同期の表示だけを1.0.2へ更新します。
+execFileSync(process.execPath,['production/save-status-errors.mjs',app],{stdio:'inherit'}); // 同期開始前の通信失敗も再試行状態として表示します。
+const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.0.2'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
 const files=[]; // 公開バイトの証拠を収集します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));assert.equal(createHash('sha256').update(bytes).digest('hex'),hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:hash,bytes:bytes.length});} // 許可した静的ファイルだけを公開領域へコピーします。
 const worker=await readFile(join(app,'web/worker.js'),'utf8');const auth=await readFile(join(app,'web/auth.mjs'),'utf8');assert(worker.includes("directory:'/.zero-one-browser-lab-v02/'+sha(scope)"));assert(worker.includes("new pool.OpfsSAHPoolDb('/core.db')"));assert(auth.includes("'guest-local'")); // DB名と本人・ゲストの境界を保持します。
 await writeFile('reports/production-build.json',JSON.stringify({version:expected.version,sourceCommit:base.sourceCommit,files,existingDataPathsPreserved:true,realMicrosoft:false,physicalIPhone:false},null,2)); // 本人端末の検証とは区別して記録します。
-console.log('1.0.1 candidate verified; browser gates must pass before deployment.'); // ビルドと公開の完了を混同しません。
+console.log('1.0.2 candidate verified; browser gates must pass before deployment.'); // ビルドと公開の完了を混同しません。
