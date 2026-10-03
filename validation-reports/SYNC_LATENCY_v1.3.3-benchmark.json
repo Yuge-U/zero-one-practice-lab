@@ -1,0 +1,47 @@
+{
+  "simulated": true,
+  "perRequestDelayMs": 5,
+  "realMicrosoft": false,
+  "results": [
+    {
+      "version": "1.3.2",
+      "phase": "cold",
+      "plans": 30,
+      "files": 35,
+      "requests": 314,
+      "downloads": 104,
+      "milliseconds": 1951,
+      "pending": 0
+    },
+    {
+      "version": "1.3.2",
+      "phase": "warm",
+      "plans": 30,
+      "files": 35,
+      "requests": 314,
+      "downloads": 104,
+      "milliseconds": 1841,
+      "pending": 0
+    },
+    {
+      "version": "1.3.3",
+      "phase": "cold",
+      "plans": 30,
+      "files": 35,
+      "requests": 141,
+      "downloads": 35,
+      "milliseconds": 271,
+      "pending": 0
+    },
+    {
+      "version": "1.3.3",
+      "phase": "warm",
+      "plans": 30,
+      "files": 35,
+      "requests": 106,
+      "downloads": 0,
+      "milliseconds": 218,
+      "pending": 0
+    }
+  ]
+}

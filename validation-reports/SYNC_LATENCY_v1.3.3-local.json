@@ -1,0 +1,71 @@
+{
+  "unit": {
+    "passed": 223,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browsers": [
+    {
+      "suite": "network/results.json",
+      "count": 18,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "save-status/results.json",
+      "count": 22,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "connection/results.json",
+      "count": 36,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "sync-latency/results.json",
+      "count": 12,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "pages-smoke.json",
+      "count": 22,
+      "passed": 22,
+      "errors": []
+    },
+    {
+      "suite": "production/results.json",
+      "count": 30,
+      "passed": 30,
+      "errors": []
+    },
+    {
+      "suite": "upgrade/results.json",
+      "count": 2,
+      "passed": null,
+      "errors": []
+    },
+    {
+      "suite": "catalog/results.json",
+      "count": 28,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "references/results.json",
+      "count": 34,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "suite": "media/results.json",
+      "count": 36,
+      "passed": true,
+      "errors": []
+    }
+  ],
+  "realMicrosoft": false,
+  "physicalIPhone": false
+}

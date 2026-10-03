@@ -1,0 +1,7 @@
+{
+  "baseline": "1.3.2",
+  "localSaveBlockedByNetwork": true,
+  "networkTimeoutDisablesAllSaving": true,
+  "simulatedNetwork": true,
+  "physicalBackground": false
+}
