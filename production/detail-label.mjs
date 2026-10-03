@@ -18,11 +18,12 @@ for(const name of ['production-scenarios.mjs','save-status-browser.mjs','catalog
 } // 旧版からのデータ保護と添付試験も省略しません。
 const scenarios=join(root,'tools/production-scenarios.mjs');let test=await readFile(scenarios,'utf8'); // 公開前後に実行する既存試験へ表示確認を加えます。
 function change(before,after){assert.equal(test.split(before).length,2,'Unexpected test marker: '+before);test=test.replace(before,after);} // 一致する試験箇所だけを変更します。
+change("async function open(page,title){","async function detailField(page){const field=page.locator('[data-field=\"rule\"]').first();assert.equal(await field.evaluate(node=>node.closest('label').firstChild.textContent.trim()),'詳細');return field;} // 入力済み本文を含めず、実際の見出し文字と入力欄の対応を検証します。\nasync function open(page,title){"); // 保存後のtextarea本文をラベル文字と混同しない試験にします。
 const labelCheck="assert.equal(await page.getByLabel('メニュー名',{exact:true}).getAttribute('data-field'),'name');"; // 既存メニュー名の確認を基点にします。
 change(labelCheck,labelCheck+"assert.equal(await page.getByLabel('詳細',{exact:true}).getAttribute('data-field'),'rule');assert.equal(await page.getByLabel('変更する条件・声掛け',{exact:true}).count(),0);"); // 新ラベルと旧ラベルの非表示を実画面で要求します。
-change("await page.locator('[data-field=\"rule\"]').first().fill('2ドリブル');","await page.getByLabel('詳細',{exact:true}).first().fill('2ドリブル');"); // 詳細の新ラベルを使って元の内容を保存します。
-change("await page.locator('[data-field=\"rule\"]').first().fill('1ドリブル');","await page.getByLabel('詳細',{exact:true}).first().fill('1ドリブル');"); // コピー先も新ラベルで一部変更します。
+change("await page.locator('[data-field=\"rule\"]').first().fill('2ドリブル');","await (await detailField(page)).fill('2ドリブル');"); // 詳細の新ラベルを使って元の内容を保存します。
+change("await page.locator('[data-field=\"rule\"]').first().fill('1ドリブル');","await (await detailField(page)).fill('1ドリブル');"); // コピー先も新ラベルで一部変更します。
 const persisted="}); // 実OPFSへの永続保存を確認します。"; // 保存と再読込の既存ケースを強化します。
-change(persisted,"await page.locator('#editPlan').click();await page.waitForFunction(()=>document.getElementById('draftMode').textContent.includes('編集モード'));assert.equal(await page.getByLabel('詳細',{exact:true}).first().inputValue(),'1ドリブル');await open(page,'本番受入・原本');await page.locator('#editPlan').click();await page.waitForFunction(()=>document.getElementById('draftMode').textContent.includes('編集モード'));assert.equal(await page.getByLabel('詳細',{exact:true}).first().inputValue(),'2ドリブル');"+persisted); // 再編集でもコピーの変更と原本の内容が別々に保持されることを確認します。
+change(persisted,"await page.locator('#editPlan').click();await page.waitForFunction(()=>document.getElementById('draftMode').textContent.includes('編集モード'));assert.equal(await (await detailField(page)).inputValue(),'1ドリブル');await open(page,'本番受入・原本');await page.locator('#editPlan').click();await page.waitForFunction(()=>document.getElementById('draftMode').textContent.includes('編集モード'));assert.equal(await (await detailField(page)).inputValue(),'2ドリブル');"+persisted); // 再編集でもコピーの変更と原本の内容が別々に保持されることを確認します。
 await writeFile(scenarios,test); // 実際に実行する既存の必須試験を保存します。
 console.log('Detail label updated; rule data and all existing regression gates preserved.'); // 公開完了ではなく候補の組立結果を記録します。
