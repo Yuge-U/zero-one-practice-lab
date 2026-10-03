@@ -37,7 +37,7 @@ for(const [name,count]of [['config.mjs',2],['core/service.mjs',1],['index.html',
 let upgrade=await readFile(join(root,'tools/upgrade-check.mjs'),'utf8'); // 既存DB保持試験を今回の公開版で判定します。
 upgrade=replace(upgrade,'1.3.3','1.3.4',4);upgrade=upgrade.replaceAll(String.raw`1\.3\.3`,String.raw`1\.3\.4`);upgrade=replace(upgrade,"results.push({engine:name,status:'failed',error:error.message,diagnostics});","console.error('UPGRADE CHECK FAILURE',name,error.stack||error.message,JSON.stringify(diagnostics));results.push({engine:name,status:'failed',error:error.message,diagnostics});");await writeFile(join(root,'tools/upgrade-check.mjs'),upgrade); // 実アプリ・Service Worker・表示版の期待値と失敗診断を揃えます。
 let scenarios=await readFile(join(root,'tools/production-scenarios.mjs'),'utf8'); // 公開候補用の画面試験を実際の表示版へ合わせます。
-scenarios=replace(scenarios,String.raw`/1\.3\.3/`,String.raw`/1\\.3\\.4/`); // 旧版番号が残った表示確認だけを更新します。
+scenarios=replace(scenarios,String.raw`/1\.3\.3/`,String.raw`/1\.3\.4/`); // 旧版番号が残った表示確認だけを更新します。
 scenarios=replace(scenarios,"version:'1.3.3'","version:'1.3.4'"); // 検証記録にも実行対象の版を記録します。
 await writeFile(join(root,'tools/production-scenarios.mjs'),scenarios); // 全受入シナリオと判定件数は維持します。
 console.log('1.3.4 candidate: saved ordered menu structures and insert-at-position controls.'); // 新機能の範囲を記録します。
