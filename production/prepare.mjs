@@ -37,10 +37,11 @@ await copyFile('production/connection-browser.mjs',join(app,'tools/connection-br
 execFileSync(process.execPath,['production/sync-latency-update.mjs',app],{stdio:'inherit'}); // 同期中の端末保存と通信失敗後の操作を保ちます。
 await copyFile('production/sync-latency.test.mjs',join(app,'tests/sync-latency.test.mjs')); // 遅延と結果不明の回帰を必須にします。
 await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latency-browser.mjs')); // 両エンジンで遅延中の保存と復帰を検証します。
-const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.3'); // 許可した修正版だけを配信します。
+execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
+const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
 const files=[]; // 公開バイトの証拠を収集します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));assert.equal(createHash('sha256').update(bytes).digest('hex'),hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:hash,bytes:bytes.length});} // 許可した静的ファイルだけを公開領域へコピーします。
 const worker=await readFile(join(app,'web/worker.js'),'utf8');const auth=await readFile(join(app,'web/auth.mjs'),'utf8');assert(worker.includes("directory:'/.zero-one-browser-lab-v02/'+sha(scope)"));assert(worker.includes("new pool.OpfsSAHPoolDb('/core.db')"));assert(auth.includes("'guest-local'")); // DB名と本人・ゲストの境界を保持します。
 await writeFile('reports/production-build.json',JSON.stringify({version:expected.version,sourceCommit:base.sourceCommit,files,existingDataPathsPreserved:true,realMicrosoft:false,physicalIPhone:false},null,2)); // 本人端末の検証とは区別して記録します。
-console.log('1.3.3 candidate verified; browser gates must pass before deployment.'); // ビルドと公開の完了を混同しません。
+console.log('1.3.4 candidate verified; existing data paths are unchanged.'); // ビルドと公開の完了を混同しません。
