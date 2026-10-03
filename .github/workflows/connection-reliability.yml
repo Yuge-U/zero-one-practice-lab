@@ -1,0 +1,64 @@
+name: PRACTICE connection reliability candidate # 接続改善を本番と分離して検証します。
+on: # このブランチだけで追加の検証を実行します。
+  push: # 本番の既存配信ワークフローは変更しません。
+    branches: [fix/onedrive-reliability-132] # 本番へは配信しません。
+permissions: # ソース取得に必要な権限だけです。
+  contents: read # Microsoftの個人データは使いません。
+concurrency: # 同じ候補の検証を直列化します。
+  group: practice-connection-${{ github.ref }} # 本番の配信と区別します。
+  cancel-in-progress: false # 検証途中の証拠を残します。
+jobs: # 両OSで既存検証と追加検証を実行します。
+  build: # このリポジトリの候補だけを対象にします。
+    if: github.repository == 'Yuge-U/zero-one-practice-lab' # 他アプリは変更しません。
+    strategy: # 一方の不合格でも両方の証拠を保存します。
+      fail-fast: false # 失敗を隠しません。
+      matrix: # 既存と同じ検証環境です。
+        os: [ubuntu-24.04, macos-15] # 実iPhoneとは別の検証です。
+    runs-on: ${{ matrix.os }} # 実ブラウザを起動します。
+    timeout-minutes: 15 # 無期限には実行しません。
+    steps: # 配信や本人クラウドへの書込みは行いません。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 候補コードを取得します。
+        with: # Git認証を残しません。
+          persist-credentials: false # 以後は読取専用です。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 固定した元アプリを取得します。
+        with: # 元の公開アプリへ書き込みません。
+          repository: Yuge-U/basketball-tactics-board # 既存と同じ基準です。
+          ref: b9390aa320ec39a19f649849a1111e26e4968453 # 固定版を使用します。
+          path: upstream # 作業領域を分けます。
+          persist-credentials: false # 長期認証を保存しません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 既存と同じNodeを使用します。
+        with: # 実行環境の版を固定します。
+          node-version: '22.16.0' # SQLite試験を維持します。
+      - name: Prepare candidate and mandatory connection unit tests # 新規単体試験もビルドの必須条件です。
+        env: # 必要な処理だけへ短期認証を渡します。
+          GH_TOKEN: ${{ github.token }} # Microsoftの認証ではありません。
+          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # 既存アイコンの変換を維持します。
+        run: | # 同じ配信候補を再現します。
+          python3 -m venv .image-env # 画像処理を隔離します。
+          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 元の画像条件と一致させます。
+          node tools/build-release.mjs # 元の固定版を照合します。
+          node production/prepare.mjs # 新規46件と配信検査値を照合します。
+      - name: Existing and new browser gates # 元の全合格条件を維持します。
+        working-directory: upstream/practice-ui-lab/app # 個人の記録とは別の合成領域です。
+        run: | # 一つでも失敗すれば本番への準備完了にしません。
+          npm install --no-save --ignore-scripts playwright@1.63.0 # 既存の版に固定します。
+          npx playwright install --with-deps chromium webkit # 両ブラウザを必須とします。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs # 既存193件を実行します。
+          node tools/network-browser.mjs # 通信先と認証の境界を検証します。
+          node tools/save-status-browser.mjs # 保存表示を検証します。
+          node tools/browser-project.mjs # オフライン起動と保存を検証します。
+          node tools/production-browser.mjs # 保存・更新と追加44実行の接続試験を検証します。
+          node tools/catalog-browser.mjs # 分類と再利用を検証します。
+          node tools/reference-browser.mjs # 参考資料を検証します。
+          node tools/media-browser.mjs # 写真動画も引き続き検証します。
+      - name: Preserve candidate evidence # 合成データの検証証拠だけを保存します。
+        if: always() # 不合格も保管します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 既存と同じ証拠保存です。
+        with: # 本人のトークンや写真を含めません。
+          name: practice-connection-${{ matrix.os }} # OSごとに分離します。
+          path: | # 配信ファイルと実際の結果を保存します。
+            reports/
+            upstream/practice-ui-lab/app/reports/
+            upstream/practice-ui-lab/app/web/
+            upstream/practice-ui-lab/app/tools/
+          retention-days: 14 # 既存の保管期間です。
