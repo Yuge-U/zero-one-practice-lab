@@ -13,6 +13,9 @@ await writeFile(join(web,'core/service.mjs'),service); // 操作ハッシュとO
 let app=await readFile(join(web,'app.mjs'),'utf8'); // 練習作成画面へ保存済み構成の操作を追加します。
 app="import {menuStructureChoices} from './menu-structures.mjs'; // 本人の保存済み構成だけを表示します。\n"+app; // ブラウザの別ユーザー候補を共有しません。
 app=replace(app,"let connectionFlight=null; // 起動時と利用者操作の接続重複を防ぎます。","let activeMenuStructure=null; // 読み込んだ構成へ新規メニューを追加する状態を記録します。\nlet connectionFlight=null; // 起動時と利用者操作の接続重複を防ぎます。"); // 既存の接続一本化を保持します。
+app=replace(app,"$('items').children[index]","$('items').querySelectorAll('.item-card')[index]",3); // 追加ボタンを挟んでもメニューカードの行番号を保ちます。
+app=replace(app,"$('items').children[issue.index]","$('items').querySelectorAll('.item-card')[issue.index]"); // 入力エラーを追加ボタンでずらさず該当メニューへ戻します。
+app=replace(app,"$('items').children[target.index]","$('items').querySelectorAll('.item-card')[target.index]"); // 参考資料を正しいメニューへ反映します。
 app=replace(app,"function renderRows(){const options=", "function renderRows(){const options="); // 画面テンプレートを明示的に基点化します。
 app=replace(app,"</article>`).join('');for(const [index,r]of rows.entries())", "</article>${index<rows.length-1?'<div class=\"actions\"><button type=\"button\" class=\"field-search\" data-insert-menu=\"'+(index+1)+'\" aria-label=\"'+(index+1)+'番目のメニューの後に追加\">＋ ここにメニューを追加</button></div>':''}`).join('');for(const [index,r]of rows.entries())"); // どのメニュー間にも位置指定の追加ボタンを表示します。
 app=replace(app,"if(b.dataset.menuPicker!==undefined)openMenuPicker(Number(b.dataset.menuPicker));", "if(b.dataset.menuPicker!==undefined)openMenuPicker(Number(b.dataset.menuPicker));if(b.dataset.insertMenu!==undefined){gather();rows.splice(Number(b.dataset.insertMenu),0,newRow());dirty=true;renderRows();}"); // 入力内容を保って指定した位置へ空メニューを挿入します。

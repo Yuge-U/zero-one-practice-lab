@@ -3,7 +3,7 @@
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "THIRD_PARTY_NOTICES.md": "031645a0c7b5baeb129cbb4ed544917004ac2de0f2a752baef417e9d0404fa42",
-    "app.mjs": "141097ea88a40f1c4212d759e40a37996683db3a512407b3fc804720bc0c306f",
+    "app.mjs": "3808b22dba573f28c390d8d0486401321be49b8fc415db5423f0d5fdc5d0ecb9",
     "auth.mjs": "05e2560c62fa04e7df1d0794a6e03009eaa6009ffb766ec99f2d6ec9175a9bc5",
     "catalog.mjs": "02322194e18daf8c0fa6a5cd30165557031cbe521269df9fc11caa3b0cda9280",
     "config.mjs": "581817ae21671caf174c956caa7262bcc61fa35edf922edab1c7a420aad89f00",
