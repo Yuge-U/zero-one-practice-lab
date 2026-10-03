@@ -34,4 +34,6 @@ let sw=await readFile(join(web,'sw.js'),'utf8'); // オフライン利用にも�
 sw=replace(sw,"'./core/service.mjs'","'./core/service.mjs','./menu-structures.mjs'"); // 必要な静的ファイルを通常更新で取得します。
 await writeFile(join(web,'sw.js'),sw); // 保存済み構成をオフラインでも読めるようにします。
 for(const [name,count]of [['config.mjs',2],['core/service.mjs',1],['index.html',2],['sw.js',4]]){const file=join(web,name);await writeFile(file,replace(await readFile(file,'utf8'),'1.3.3','1.3.4',count));} // キャッシュと画面の版番号を揃えます。
+let upgrade=await readFile(join(root,'tools/upgrade-check.mjs'),'utf8'); // 既存DB保持試験を今回の公開版で判定します。
+upgrade=replace(upgrade,'1.3.3','1.3.4',4);await writeFile(join(root,'tools/upgrade-check.mjs'),upgrade); // 実アプリとService Workerの期待版を揃えます。
 console.log('1.3.4 candidate: saved ordered menu structures and insert-at-position controls.'); // 新機能の範囲を記録します。
