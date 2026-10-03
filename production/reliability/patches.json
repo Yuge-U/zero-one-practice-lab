@@ -1,0 +1,246 @@
+[
+  {
+    "file": "core/graph.mjs",
+    "before": "export class GraphClient { \n  constructor({getToken,fetcher=globalThis.fetch.bind(globalThis),sleep=ms=>new Promise(r=>setTimeout(r,ms))}) { this.getToken=getToken;this.fetcher=fetcher;this.sleep=sleep;this.requests=0; } \n  safeUrl(path) { \n    const url=new URL(path.startsWith('https:')?path:GRAPH+path); \n    ensure(url.origin==='https://graph.microsoft.com' && !url.username && !url.password && url.pathname.startsWith('/v1.0/me/drive/'),'PATH','許可されていないGraph宛先です。'); \n    return url.href; \n  } \n  async request(path,options={}) { \n    const url=this.safeUrl(path); const method=options.method||'GET'; ensure(['GET','POST','PUT'].includes(method),'METHOD','削除や未定義の通信は禁止しています。'); \n    for(let attempt=0;attempt<3;attempt++) { \n      let token;try{token=await this.getToken();}catch{throw new LabError('AUTH','Microsoftへの再接続が必要です。端末保存は保持しています。');} \n      let response; try { ensure(typeof token==='string'&&token,'AUTH','再接続が必要です。'); this.requests++; response=await this.fetcher(url,{...options,method,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`},credentials:'omit',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(25000)}); } catch(error) { if(error instanceof LabError)throw error; throw new LabError('NETWORK','通信が完了しませんでした。端末保存は保持しています。'); } \n      if([429,503].includes(response.status)&&attempt<2) { const wait=retryDelay(response.headers.get('Retry-After')); if(wait>60000)throw new LabError('RATE_LIMIT','通信回数の制限中です。時間を置いて同期してください。'); await this.sleep(Math.max(500,wait));continue; } \n      if(response.status===404)return null; \n      if(!response.ok) { const codes={401:'AUTH',403:'PERMISSION',409:'CONFLICT',412:'CONFLICT',429:'RATE_LIMIT',507:'QUOTA'}; throw new LabError(codes[response.status]||'GRAPH',`OneDriveへの${method==='GET'?'読込':'保存'}に失敗しました（${response.status}）。端末の変更は保持しています。`); } \n      if(response.status===204)return {}; \n      const raw=await response.text();ensure(byteLength(raw)<=8*LIMIT,'LIMIT','Graph応答が検証版の上限を超えています。'); \n      try{return JSON.parse(raw);}catch{throw new LabError('CORRUPT','Graph応答を読み取れません。');} \n    } \n    throw new LabError('RATE_LIMIT','OneDriveが混雑しています。後で同期してください。'); \n  } \n  async children(id) { \n    const result=[];let path=`/me/drive/items/${encodeURIComponent(id)}/children`;const visited=new Set(); \n    while(path) { ensure(!visited.has(path)&&visited.size<100,'LIMIT','一覧取得のページングが異常です。');visited.add(path);const page=await this.request(path);ensure(page&&Array.isArray(page.value),'CLOUD_MISSING','同期フォルダを取得できません。');result.push(...page.value);ensure(result.length<=10000,'LIMIT','検証版のファイル件数上限です。');path=page['@odata.nextLink']||null; } \n    return result; \n  } \n  async readText(item) { \n    ensure(item?.id,'MISSING','ファイルIDがありません。'); const meta=await this.request(`/me/drive/items/${encodeURIComponent(item.id)}`);ensure(meta,'CLOUD_MISSING','ファイルが見つかりません。'); \n    ensure(!Number.isFinite(meta.size)||meta.size<=LIMIT,'LIMIT','この検証版で扱うファイルは2MiB以下です。');const target=meta['@microsoft.graph.downloadUrl']; \n    ensure(typeof target==='string','DOWNLOAD','ダウンロード先を取得できません。');const url=new URL(target);ensure(url.protocol==='https:'&&!url.username&&!url.password,'PATH','安全なダウンロード先ではありません。'); \n    let response;try{response=await this.fetcher(url.href,{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(25000)});}catch{throw new LabError('NETWORK','ファイル取得が中断しました。再同期してください。');} \n    ensure(response.ok,'DOWNLOAD','ファイル取得に失敗しました。');const raw=await response.text();ensure(byteLength(raw)<=LIMIT,'LIMIT','受信ファイルが大きすぎます。');return raw; \n  } \n} \n",
+    "after": "export const transientConnection = code => ['NETWORK','TIMEOUT','TEMPORARY','RATE_LIMIT'].includes(code); // 自動復帰できる通信障害だけを分類します。\nexport function connectionAbort(signal) { if(signal?.aborted)throw new LabError(signal.reason?.name==='TimeoutError'?'TIMEOUT':'CANCELLED',signal.reason?.name==='TimeoutError'?'OneDriveの応答待ちが長いため、今回の同期を中断しました。端末保存は保持しています。':'接続処理を中断しました。端末保存は保持しています。'); } // 通信の期限と本人操作の中断を分けます。\nexport function connectionRace(promise,signal) { // 応答しない認証・読込でも保存Worker全体を停止させません。\n  connectionAbort(signal);return new Promise((resolve,reject)=>{const abort=()=>{try{connectionAbort(signal);}catch(error){reject(error);}};signal?.addEventListener('abort',abort,{once:true});Promise.resolve(promise).then(resolve,reject).finally(()=>signal?.removeEventListener('abort',abort));}); // 元のPromiseの遅い失敗も捕捉します。\n} // 中断可能な待機を閉じます。\nexport class GraphClient { // 同じ本人と従来のGraph領域だけへ通信します。\n  constructor({getToken,fetcher=globalThis.fetch.bind(globalThis),sleep=null,timeoutMs=25000,random=Math.random}) {this.getToken=getToken;this.fetcher=fetcher;this.sleep=sleep;this.timeoutMs=timeoutMs;this.random=random;this.requests=0;this.retries=0;this.controller=new AbortController();this.taskSignal=null;} // 認証情報はキャッシュへ独自保存しません。\n  safeUrl(path) {const url=new URL(path.startsWith('https:')?path:GRAPH+path);ensure(url.origin==='https://graph.microsoft.com'&&!url.username&&!url.password&&url.pathname.startsWith('/v1.0/me/drive/'),'PATH','許可されていないGraph宛先です。');return url.href;} // 許可済みのGraph宛先以外へトークンを送りません。\n  signal(extra=null){return AbortSignal.any([this.controller.signal,...(this.taskSignal?[this.taskSignal]:[]),...(extra?[extra]:[])]);} // 同期全体・単一要求・サインアウトの中断を統合します。\n  close(){this.controller.abort();} // 終了する本人領域の通信を止めます。\n  async withTask(fn,timeoutMs=180000){ensure(!this.taskSignal,'BUSY','OneDrive処理は実行中です。');this.taskSignal=AbortSignal.timeout(timeoutMs);try{return await fn();}finally{this.taskSignal=null;}} // 一回の同期に上限を設け、再試行可能な失敗として戻します。\n  async pause(ms,signal){connectionAbort(signal);if(this.sleep)return connectionRace(this.sleep(ms),signal);return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},ms);const abort=()=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);try{connectionAbort(signal);}catch(error){reject(error);}};signal?.addEventListener('abort',abort,{once:true});});} // 再試行の待機中も中断できます。\n  delay(response,attempt){const value=response?.headers?.get('Retry-After');return value?Math.max(500,retryDelay(value)):Math.min(8000,500*2**attempt+Math.floor(this.random()*200));} // 指定された待機時間を守り、指定がなければ間隔を広げます。\n  failure(status,method){const codes={401:'AUTH',403:'PERMISSION',408:'TEMPORARY',409:'CONFLICT',412:'CONFLICT',423:'TEMPORARY',429:'RATE_LIMIT',500:'TEMPORARY',502:'TEMPORARY',503:'TEMPORARY',504:'TEMPORARY',507:'QUOTA',509:'RATE_LIMIT'};return new LabError(codes[status]||'GRAPH',`OneDriveへの${method==='GET'?'読込':'保存'}が未完了です（${status}）。端末の記録は保持しています。`);} // 権限・容量・認証・一時障害を混同しません。\n  async request(path,options={}) { // 最大三回の通信と一回だけの認証再取得を行います。\n    const url=this.safeUrl(path),method=options.method||'GET';ensure(['GET','POST','PUT'].includes(method),'METHOD','削除や未定義の通信は禁止しています。');const {timeoutMs=this.timeoutMs,signal:extra,...init}=options;const outer=this.signal(extra);let refreshed=false,forceRefresh=false; // リトライでも宛先と本文を変更しません。\n    for(let attempt=0;attempt<3;attempt++){ // 無制限の再送は行いません。\n      connectionAbort(outer);const signal=AbortSignal.any([outer,AbortSignal.timeout(timeoutMs)]);let response; // 認証から本文読込までを同じ期限で管理します。\n      try{let token;try{token=await connectionRace(this.getToken({forceRefresh,signal}),signal);}catch(error){if(error.code)throw error;throw new LabError('AUTH','Microsoftへの再接続が必要です。端末保存は保持しています。');}forceRefresh=false;connectionAbort(signal);ensure(typeof token==='string'&&token,'AUTH','Microsoftへの再接続が必要です。');this.requests++; // 実際に開始した通信だけを数えます。\n        response=await connectionRace(this.fetcher(url,{...init,method,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`},credentials:'omit',cache:'no-store',redirect:'error',signal}),signal); // Graphへのリダイレクト制限を維持します。\n        if(response.status===401&&!refreshed&&attempt<2){await response.body?.cancel().catch(()=>{});refreshed=true;forceRefresh=true;this.retries++;continue;} // キャッシュ済みトークンが拒否されたら一回だけ更新します。\n        if(response.status===304&&Object.keys(options.headers||{}).some(key=>key.toLowerCase()==='if-none-match'))return {notModified:true}; // 検証済み内容の条件付き確認だけを許可します。\n        if(response.status===404)return null;if(response.status===204)return {}; // 従来の未存在と空応答の扱いを維持します。\n        if(!response.ok)throw Object.assign(this.failure(response.status,method),{retryAfterMs:this.delay(response,attempt)}); // 生の応答本文や資格情報をエラーへ含めません。\n        const raw=await connectionRace(response.text(),signal);ensure(byteLength(raw)<=8*LIMIT,'LIMIT','Graph応答のサイズ上限を超えています。');try{return JSON.parse(raw);}catch{throw new LabError('CORRUPT','Graph応答を読み取れません。');} // 本文受信途中の切断も例外処理の対象にします。\n      }catch(error){connectionAbort(outer);let failure=error instanceof LabError?error:['AUTH','NETWORK','TIMEOUT','CANCELLED','SCOPE'].includes(error?.code)?Object.assign(new LabError(error.code,error.message),{retryAfterMs:error.retryAfterMs}):error?.name==='TimeoutError'||signal.aborted?new LabError('TIMEOUT','OneDriveの応答待ちが長くなっています。端末保存は保持しています。'):new LabError('NETWORK','通信が完了しませんでした。端末保存は保持しています。'); // 一時的な通信失敗を再認証へ誤分類しません。\n        const wait=failure.retryAfterMs??this.delay(null,attempt);if(response?.body)await response.body.cancel().catch(()=>{});if(!transientConnection(failure.code)||attempt===2||method==='POST'||wait>60000)throw Object.assign(failure,{retryAfterMs:wait});this.retries++;await this.pause(wait,outer); // POSTの応答不明時は盲目的に同じ作成要求を送らず、呼出元で存在確認します。\n      } // 失敗時もローカルの保存は取り消しません。\n    }throw new LabError('NETWORK','OneDriveの通信が未完了です。再同期してください。'); // 未実行の通信を成功扱いしません。\n  } // GraphのJSON通信を閉じます。\n  async children(id){const result=[];let path=`/me/drive/items/${encodeURIComponent(id)}/children`;const visited=new Set();while(path){ensure(!visited.has(path)&&visited.size<100,'LIMIT','一覧取得のページングが異常です。');visited.add(path);const page=await this.request(path);ensure(page&&Array.isArray(page.value),'CLOUD_MISSING','同期フォルダを取得できません。');result.push(...page.value);ensure(result.length<=10000,'LIMIT','同期ファイルの件数上限です。');path=page['@odata.nextLink']||null;}return result;} // 全ページを取得し、別オリジンの次ページを拒否します。\n  async readText(item,{metadata=null}={}){ // 期限切れの取得URLは一度だけ取り直します。\n    ensure(item?.id,'MISSING','ファイルIDがありません。');let meta=metadata||await this.request(`/me/drive/items/${encodeURIComponent(item.id)}`);ensure(meta,'CLOUD_MISSING','ファイルが見つかりません。'); // 直前のGraph応答を再利用して重複要求を減らします。\n    const blob=await this.download(meta,{limit:LIMIT,refresh:()=>this.request(`/me/drive/items/${encodeURIComponent(item.id)}`)});return blob.text(); // トークンを付けない本文取得を共用します。\n  } // 計画ファイルの取得を閉じます。\n  async download(meta,{limit=LIMIT,signal:extra=null,timeoutMs=this.timeoutMs,refresh=null,validateUrl=null}={}) { // 計画と写真動画で同じ復旧規則を使います。\n    const outer=this.signal(extra);let renewed=false; // 本文取得へGraphのBearerトークンを渡しません。\n    for(let attempt=0;attempt<3;attempt++){ // 部分ダウンロードは破棄して再取得します。\n      connectionAbort(outer);ensure(meta?.id,'CLOUD_MISSING','ファイルが見つかりません。');ensure(!Number.isFinite(meta.size)||meta.size<=limit,'LIMIT','受信ファイルが大きすぎます。');const target=meta['@microsoft.graph.downloadUrl'];ensure(typeof target==='string','DOWNLOAD','ダウンロード先を取得できません。');const url=new URL(target);ensure(url.protocol==='https:'&&!url.username&&!url.password,'PATH','安全なダウンロード先ではありません。');if(validateUrl)validateUrl(url.href); // メディア側の厳格なドメイン制限もそのまま適用します。\n      const signal=AbortSignal.any([outer,AbortSignal.timeout(timeoutMs)]);let response,reader; // 受信中のサイズと時間を制限します。\n      try{response=await connectionRace(this.fetcher(url.href,{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',redirect:validateUrl?'error':'follow',signal}),signal); // 取得URLへAuthorizationやCookieを付けません。\n        if([401,403,404].includes(response.status)&&refresh&&!renewed&&attempt<2){await response.body?.cancel().catch(()=>{});meta=await refresh();renewed=true;this.retries++;continue;} // 期限切れURLをGraphから再取得します。\n        if(!response.ok)throw Object.assign(this.failure(response.status,'GET'),{code:[401,403,404].includes(response.status)?'DOWNLOAD':this.failure(response.status,'GET').code,retryAfterMs:this.delay(response,attempt)}); // 元サービスの権限を勝手に変更しません。\n        const declared=Number(response.headers.get('Content-Length'));ensure(!declared||declared<=limit,'LIMIT','受信ファイルが大きすぎます。');const chunks=[];let size=0; // 大きすぎる本文をメモリへ読み込む前に止めます。\n        if(response.body?.getReader){reader=response.body.getReader();while(true){const {done,value}=await connectionRace(reader.read(),signal);if(done)break;size+=value.byteLength;ensure(size<=limit,'LIMIT','受信ファイルが大きすぎます。');chunks.push(value);}}else{const raw=await connectionRace(response.text(),signal);ensure(byteLength(raw)<=limit,'LIMIT','受信ファイルが大きすぎます。');chunks.push(raw);}connectionAbort(signal);return new Blob(chunks); // 完了した本文だけを呼出元の内容検証へ渡します。\n      }catch(error){connectionAbort(outer);const failure=error instanceof LabError?error:new LabError(signal.aborted?'TIMEOUT':'NETWORK','ファイル取得が中断しました。端末の記録は保持しています。');const wait=failure.retryAfterMs??this.delay(null,attempt);if(!transientConnection(failure.code)||attempt===2||wait>60000)throw Object.assign(failure,{retryAfterMs:wait});this.retries++;await this.pause(wait,outer); // ハッシュ不一致や権限不足を通信成功として扱いません。\n      }finally{if(reader){await reader.cancel().catch(()=>{});reader.releaseLock();}else if(response?.body)await response.body.cancel().catch(()=>{});} // 中断された本文とストリームを解放します。\n    }throw new LabError('DOWNLOAD','ファイル取得が未完了です。再同期してください。'); // 本体がない状態で保存済みと表示しません。\n  } // 認証不要の本文取得を閉じます。\n} // Graph接続を閉じます。\n"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "this.folderId=null;this.marker=null;",
+    "after": "this.folderId=null;this.marker=null;this.verified=new Map();"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "  async get(key) {ensure(validCloudKey(key),'PATH','不正なファイル名です。');ensure(this.folderId,'NOT_PROVISIONED','同期領域が未接続です。');const item=await this.client.request(`/me/drive/items/${encodeURIComponent(this.folderId)}:/${encodeURIComponent(key)}`);if(!item)return null;try{return JSON.parse(await this.client.readText(item));}catch(e){if(e instanceof LabError)throw e;throw new LabError('CORRUPT','同期ファイルの内容が壊れています。');}} ",
+    "after": "  async get(key) { // 条件付きメタデータ確認で、同じ本文の重複ダウンロードを減らします。\n    ensure(validCloudKey(key),'PATH','不正なファイル名です。');ensure(this.folderId,'NOT_PROVISIONED','同期領域が未接続です。');const known=this.verified.get(key);const item=await this.client.request(`/me/drive/items/${encodeURIComponent(this.folderId)}:/${encodeURIComponent(key)}`,known?.eTag?{headers:{'If-None-Match':known.eTag}}:{}); // 毎回OneDriveへ変更有無を確認し、時刻だけで同期済みとは判断しません。\n    if(item?.notModified){ensure(known?.eTag,'VERIFY','確認済みの本文がありません。');return structuredClone(known.wire);}if(!item){this.verified.delete(key);return null;} // 消失したファイルをキャッシュで隠しません。\n    let value;try{value=JSON.parse(await this.client.readText(item,{metadata:item['@microsoft.graph.downloadUrl']?item:null}));}catch(error){if(error instanceof LabError)throw error;throw new LabError('CORRUPT','同期ファイルの内容が壊れています。');} // 直前の取得先が使える場合だけ再利用します。\n    if(key.startsWith('B_')){validateObject(value);ensure(objectKey(value.hash)===key,'CORRUPT','固定版名が不一致です。');}else{validateOperation(value,this.scope);ensure(operationKey(value)===key,'CORRUPT','操作名が不一致です。');} // ハッシュ・所有者・内容を検査してから記憶します。\n    if(typeof item.eTag==='string'&&item.eTag){if(this.verified.size>=10000)this.verified.clear();this.verified.set(key,{eTag:item.eTag,wire:structuredClone(value)});}else this.verified.delete(key);return value; // eTagのない応答は省略せず再取得します。\n  } // 同期本文の取得を閉じます。"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "  async writeNew(name,value) {const raw=canonical(value);ensure(byteLength(raw)<=LIMIT,'LIMIT','保存データが大きすぎます。');return this.client.request(`/me/drive/items/${encodeURIComponent(this.folderId)}:/${encodeURIComponent(name)}:/content`,{method:'PUT',headers:{'Content-Type':'application/json'},body:raw});} ",
+    "after": "  async writeNew(name,value) { // 同名の未知の内容を上書きせず、応答が消えた場合は実体を確認します。\n    const raw=canonical(value);ensure(byteLength(raw)<=LIMIT,'LIMIT','保存データが大きすぎます。');const path=`/me/drive/items/${encodeURIComponent(this.folderId)}:/${encodeURIComponent(name)}`;this.verified.delete(name); // 書込み前のキャッシュを破棄します。\n    try{return await this.client.request(path+':/content?@microsoft.graph.conflictBehavior=fail',{method:'PUT',headers:{'Content-Type':'application/json'},body:raw});}catch(error){if(!['NETWORK','TIMEOUT','TEMPORARY','CONFLICT'].includes(error.code))throw error;const item=await this.client.request(path);if(!item)throw error;const read=await this.client.readText(item,{metadata:item['@microsoft.graph.downloadUrl']?item:null});ensure(read===raw,'COLLISION','同名の異なる内容は上書きしません。');return item;} // UUIDを作り直さず同じ保存内容を確認して二重登録を防ぎます。\n  } // 固定名への書込みを閉じます。"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "ensure(canonical(old)===canonical(wire),'COLLISION','同名の異なる内容を上書きしません。');return;",
+    "after": "ensure(canonical(old)===canonical(wire),'COLLISION','同名の異なる内容を上書きしません。');return old;"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "ensure(saved&&canonical(saved)===canonical(wire),'VERIFY','OneDrive保存後の内容確認が未完了です。');",
+    "after": "ensure(saved&&canonical(saved)===canonical(wire),'VERIFY','OneDrive保存後の内容確認が未完了です。');return saved;"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "folder=await this.client.request(`/me/drive/items/${encodeURIComponent(root.id)}/children`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:LAB_FOLDER,folder:{},'@microsoft.graph.conflictBehavior':'fail'})});",
+    "after": "try{folder=await this.client.request(`/me/drive/items/${encodeURIComponent(root.id)}/children`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:LAB_FOLDER,folder:{},'@microsoft.graph.conflictBehavior':'fail'})});}catch(error){if(!['NETWORK','TIMEOUT','TEMPORARY','CONFLICT'].includes(error.code))throw error;folder=(await this.client.children(root.id)).find(item=>item.name===LAB_FOLDER);if(!folder)throw error;}"
+  },
+  {
+    "file": "core/sync.mjs",
+    "before": "await this.cloud.put(objectKey(o.hash),o); const reread = await this.checkedObject(o.hash);",
+    "after": "const verified=await this.cloud.put(objectKey(o.hash),o); const reread = verified||await this.checkedObject(o.hash);"
+  },
+  {
+    "file": "core/sync.mjs",
+    "before": "await this.cloud.put(key,o); const reread = await this.checkedOperation(key);",
+    "after": "const verified=await this.cloud.put(key,o); const reread = verified||await this.checkedOperation(key);"
+  },
+  {
+    "file": "core/sync.mjs",
+    "before": "this.repo.setMeta('lastError', e.message);",
+    "after": "this.repo.setMeta('lastError', e.message);this.repo.setMeta('lastErrorCode',e.code||'UNKNOWN');"
+  },
+  {
+    "file": "core/sync.mjs",
+    "before": "this.repo.setMeta('lastError',''); \n      return",
+    "after": "this.repo.setMeta('lastError','');this.repo.setMeta('lastErrorCode',''); \n      return"
+  },
+  {
+    "file": "core/service.mjs",
+    "before": "this.chain=Promise.resolve();}",
+    "after": "this.chain=Promise.resolve();this.cloudChain=Promise.resolve();this.closing=false;this.closed=false;}"
+  },
+  {
+    "file": "core/service.mjs",
+    "before": "  run(name,args={}) {const task=this.chain.catch(()=>{}).then(()=>this.execute(name,args));this.chain=task;return task;} ",
+    "after": "  run(name,args={},onStart=()=>{}) { // SQLの同期トランザクションは維持し、ネットワーク待機から端末操作を分離します。\n    if(this.closing||this.closed)return Promise.reject(new LabError('CLOSED','保存領域を閉じています。')); // 終了後の領域へ遅い結果を書き込みません。\n    if(name==='close'){this.closing=true;this.graph?.close?.();return Promise.allSettled([this.chain,this.cloudChain]).then(()=>{onStart();this.closed=true;return this.execute(name,args);});} // 通信を中断してからDBとロックを解放します。\n    const local=['state','savePlan','detail','archive','resolve','record','timer','backup','inspectTerms','inspectCanvas','diagnostics'].includes(name);const lane=local?'chain':'cloudChain';const previous=this[lane];const barrier=local?Promise.resolve():this.chain; // 状態確認や練習保存を同期完了待ちにしません。\n    const task=previous.catch(()=>{}).then(()=>barrier.catch(()=>{})).then(()=>{if(this.closing)throw new LabError('CLOSED','保存領域を閉じています。');onStart();return !local&&this.graph?.withTask?this.graph.withTask(()=>this.execute(name,args)):this.execute(name,args);});this[lane]=task;return task; // クラウド要求同士は直列化し、各要求の期限を守ります。\n  } // 処理受付を閉じます。"
+  },
+  {
+    "file": "core/service.mjs",
+    "before": "cloudConfigured:Boolean(this.engine)}",
+    "after": "cloudConfigured:Boolean(this.engine),graphRequests:this.graph?.requests||0,connectionRetries:this.graph?.retries||0,lastErrorCode:r.meta('lastErrorCode')||''}"
+  },
+  {
+    "file": "worker.js",
+    "before": "function token() {",
+    "after": "function token(options={}) {"
+  },
+  {
+    "file": "worker.js",
+    "before": "postMessage({type:'token',id});",
+    "after": "postMessage({type:'token',id,forceRefresh:options.forceRefresh===true});"
+  },
+  {
+    "file": "worker.js",
+    "before": "reject(new Error('Microsoft接続を確認してください。'));",
+    "after": "reject(Object.assign(new Error('Microsoft認証の応答待ちが長くなっています。'),{code:'TIMEOUT'}));"
+  },
+  {
+    "file": "worker.js",
+    "before": "item.reject(new Error(m.error))",
+    "after": "item.reject(Object.assign(new Error(m.error),{code:m.code||'AUTH'}))"
+  },
+  {
+    "file": "worker.js",
+    "before": "service.run(m.command,m.args)",
+    "after": "service.run(m.command,m.args,()=>postMessage({type:'started',id:m.id}))"
+  },
+  {
+    "file": "worker.js",
+    "before": "code:e.code||'STORAGE'",
+    "after": "code:e.code||'STORAGE',retryAfterMs:e.retryAfterMs||0"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "const timeoutMs=['sync','handoff','receiveHandoff','connectCloud','canvasLibrary'].includes(command)?300000:this.timeoutMs;",
+    "after": "const remote=['sync','handoff','receiveHandoff','connectCloud','canvasLibrary','readCanvas','mediaConnection','referenceCheck','close'].includes(command);const timeoutMs=remote?300000:this.timeoutMs;"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "const timer=this.timers.setTimeout(()=>this.fail(new Error('応答を確認できません。処理が完了した可能性があるため、自動再保存せず再読込して履歴を確認してください。')),timeoutMs);",
+    "after": "const expire=()=>{if(remote){this.pending.delete(id);reject(Object.assign(new Error('OneDriveの応答が未確認です。端末保存は利用できます。再同期で確認してください。'),{code:'TIMEOUT'}));}else this.fail(new Error('応答を確認できません。処理が完了した可能性があるため、自動再保存せず再読込して履歴を確認してください。'));};const timer=this.timers.setTimeout(expire,timeoutMs);"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "this.pending.set(id,{resolve,reject,timer,command});",
+    "after": "this.pending.set(id,{resolve,reject,timer,command,remote,timeoutMs,expire});"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "const token=await this.getToken();",
+    "after": "const token=await this.getToken({forceRefresh:message.forceRefresh===true});"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "}catch{if(!this.closed&&!this.failed)this.worker.postMessage({type:'tokenResult',id:message.id,error:'Microsoftへの再接続が必要です。'});}",
+    "after": "}catch(error){if(!this.closed&&!this.failed)this.worker.postMessage({type:'tokenResult',id:message.id,error:error.code==='NETWORK'||error.code==='TIMEOUT'?'Microsoft認証の通信が未完了です。':'Microsoftへの再接続が必要です。',code:['NETWORK','TIMEOUT','AUTH','SCOPE'].includes(error.code)?error.code:'AUTH'});}"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "if(message.type!=='result')return;",
+    "after": "if(message.type==='started'){const queued=this.pending.get(message.id);if(queued?.remote){this.timers.clearTimeout(queued.timer);queued.timer=this.timers.setTimeout(queued.expire,queued.timeoutMs);}return;}if(message.type!=='result')return;"
+  },
+  {
+    "file": "worker-bridge.mjs",
+    "before": "{code:message.error.code}",
+    "after": "{code:message.error.code,retryAfterMs:message.error.retryAfterMs||0}"
+  },
+  {
+    "file": "auth.mjs",
+    "before": "  async token(){if(!this.client||!this.account)throw new Error('Microsoftアカウントへ接続してください。');const expected=this.account.homeAccountId;try{const result=await this.client.acquireTokenSilent({account:this.account,scopes:SCOPES});if(!result.accessToken||(result.account&&result.account.homeAccountId!==expected))throw new Error();this.needsInteraction=false;return result.accessToken;}catch{this.needsInteraction=true;throw new Error('Microsoftの再認証が必要です。「再接続」を押してください。保存済みの記録は保持しています。');}} // 必要時だけ本人へ再認証を依頼します。",
+    "after": "  async token({forceRefresh=false}={}) { // 同じ本人のキャッシュを利用し、401時だけ無言で更新します。\n    if(!this.client||!this.account)throw Object.assign(new Error('Microsoftアカウントへ接続してください。'),{code:'AUTH'});const expected=this.account.homeAccountId,client=this.client; // 非同期中のアカウント切替も検出します。\n    try{const result=await client.acquireTokenSilent({account:this.account,scopes:SCOPES,...(forceRefresh?{forceRefresh:true}:{})});if(this.client!==client||this.account?.homeAccountId!==expected||(result.account&&result.account.homeAccountId!==expected))throw Object.assign(new Error('アカウントが変わりました。'),{code:'SCOPE'});if(!result.accessToken)throw new Error('TOKEN_EMPTY');this.needsInteraction=false;return result.accessToken;} // 更新されたトークンだけを元の領域へ返します。\n    catch(error){if(error.code==='SCOPE')throw error;const code=String(error.errorCode||error.code||'');if(['no_network_connectivity','network_error','get_request_failed','post_request_failed','request_timeout','temporarily_unavailable','server_error','NETWORK','TIMEOUT'].includes(code)||error.name==='TypeError'||error.name==='TimeoutError'){throw Object.assign(new Error('Microsoft認証の通信が未完了です。接続が戻ってから再試行します。'),{code:code.includes('timeout')||error.name==='TimeoutError'?'TIMEOUT':'NETWORK'});}this.needsInteraction=true;throw Object.assign(new Error('Microsoftの再認証が必要です。「再接続」を押してください。保存済みの記録は保持しています。'),{code:'AUTH'});} // 一時的な通信障害だけでログインを要求しません。\n  } // 認証結果の取得を閉じます。"
+  },
+  {
+    "file": "app.mjs",
+    "before": "getToken:async()=>{if(auth.scope()!==scope)",
+    "after": "getToken:async options=>{if(auth.scope()!==scope)"
+  },
+  {
+    "file": "app.mjs",
+    "before": "const token=await auth.token();if(auth.scope()!==scope)",
+    "after": "const token=await auth.token(options);if(auth.scope()!==scope)"
+  },
+  {
+    "file": "app.mjs",
+    "before": "getToken:async()=>{if(mediaSession!==session",
+    "after": "getToken:async options=>{if(mediaSession!==session"
+  },
+  {
+    "file": "app.mjs",
+    "before": "const token=await auth.token();if(mediaSession!==session",
+    "after": "const token=await auth.token(options);if(mediaSession!==session"
+  },
+  {
+    "file": "app.mjs",
+    "before": "function scheduleSync(){if(!cloudReady)return;clearTimeout(autoSync);autoSync=setTimeout(()=>synchronize().catch(error=>message(error.message,true)),1500);} ",
+    "after": "let syncAgain=false,retryCount=0,retryAt=0,retryBlockedUntil=0,serverBackoffUntil=0,syncErrorCode=''; // 同期中に発生した保存と一時障害の復旧を管理します。\nconst retryableSync=code=>['NETWORK','TIMEOUT','TEMPORARY','RATE_LIMIT'].includes(code); // 権限・容量・破損は自動再試行しません。\nfunction queueSyncRetry(error){if(error.code==='RATE_LIMIT')serverBackoffUntil=Math.max(serverBackoffUntil,Date.now()+(Number(error.retryAfterMs)||0));if(!retryableSync(error.code)||retryCount>=3||!auth.account||auth.needsInteraction||state?.blocked)return;clearTimeout(autoSync);const delay=Math.max([5000,15000,45000][retryCount++],Number(error.retryAfterMs)||0);retryAt=Date.now()+delay;retryBlockedUntil=retryAt;autoSync=setTimeout(()=>{retryAt=0;if(navigator.onLine&&!document.hidden)guard(()=>synchronize({reason:'retry'}));},delay);refreshPresentation();} // 最大三回、間隔を広げて再接続します。\nfunction scheduleSync(){if(!auth.account)return;syncAgain=true;retryCount=0;clearTimeout(autoSync);if(sending)return;const wait=Math.max(1500,retryBlockedUntil-Date.now());autoSync=setTimeout(()=>guard(()=>synchronize({reason:'save'})),wait);} // 同期中に押した保存も最後に必ずもう一度送信します。"
+  },
+  {
+    "file": "app.mjs",
+    "before": "async function synchronize(){if(!cloudReady||sending)return;if(!navigator.onLine){refreshPresentation();message('オフラインです。保存済みの練習はこの端末に残り、通信が戻ると自動同期します。');return;}sending=true;refreshState();message('OneDriveと同期中です。入力中の変更は「練習を保存」を押して登録してください。');try{const result=await request('sync');syncFailure='';refreshState(result.state);const view=syncView(result.state,{connected:cloudReady,online:navigator.onLine});message(dirty?draftWarning(true):'');void startMediaSync();if(selected&&$('detail').hidden===false)await openDetail(selected);}catch(error){syncFailure=error.message||'OneDrive同期未完了';throw error;}finally{sending=false;refreshState(await request('state'));}} // 同期待ち・同期中・同期済みを実際の応答に合わせます。",
+    "after": "async function synchronize({manual=false,reason='event'}={}) { // 端末保存を止めず本人のクラウド状態を確認します。\n  if(!initialized||!auth.account||auth.needsInteraction)return;if(sending){if(reason==='save')syncAgain=true;return;}if(!navigator.onLine){refreshPresentation();message('オフラインです。保存済みの練習はこの端末に残り、通信が戻ると自動同期します。');return;}if(Date.now()<serverBackoffUntil){message('OneDriveが混雑しています。指定された待機時間後に再確認します。');return;}if(!manual&&Date.now()<retryBlockedUntil)return; // 接続復帰のイベント連打と過剰な再試行を抑えます。\n  if(manual){retryCount=0;retryAt=0;retryBlockedUntil=0;}clearTimeout(autoSync);const active=bridge;const scope=auth.scope();sending=true;syncAgain=false;refreshPresentation();message('OneDriveと同期中です。入力中の変更は「練習を保存」で登録できます。');let succeeded=false; // 保存済みデータだけを同期対象にします。\n  try{if(!cloudReady){await request('connectCloud',{create:false});if(active!==bridge||scope!==auth.scope())return;cloudReady=true;}const result=await request('sync');if(active!==bridge||scope!==auth.scope())return;syncFailure='';syncErrorCode='';retryCount=0;retryAt=0;retryBlockedUntil=0;serverBackoffUntil=0;succeeded=true;refreshState(result.state);message(dirty?draftWarning(true):'');void startMediaSync();if(selected&&$('detail').hidden===false&&!saving)await openDetail(selected);} // 既存フォルダーを確認し、勝手に別フォルダーを作りません。\n  catch(error){if(active!==bridge)return;syncFailure=error.message||'OneDrive同期未完了';syncErrorCode=error.code||'UNKNOWN';if(error.code==='AUTH')auth.needsInteraction=true;queueSyncRetry(error);throw error;} // 確認に失敗したら保存済み・同期済みを区別して残します。\n  finally{if(active===bridge){sending=false;try{refreshState(await request('state'));}catch{}if(succeeded&&(syncAgain||state?.pending))scheduleSync();else refreshPresentation();}} // 待機中の追加保存を次の同期へ回します。\n} // 一回の同期を閉じます。"
+  },
+  {
+    "file": "app.mjs",
+    "before": "async function connectCloud(create=false){if(!auth.account)throw new Error('先にMicrosoftへサインインしてください。');await request('connectCloud',{create});cloudReady=true;refreshState();message('本人のOneDrive保存領域に接続しました。');await synchronize();} ",
+    "after": "async function connectCloud(create=false){if(!auth.account)throw new Error('先にMicrosoftへサインインしてください。');try{await request('connectCloud',{create});cloudReady=true;syncFailure='';syncErrorCode='';refreshState();message('本人のOneDrive保存領域に接続しました。');}catch(error){syncFailure=error.message;syncErrorCode=error.code||'UNKNOWN';if(error.code==='AUTH')auth.needsInteraction=true;queueSyncRetry(error);throw error;}await synchronize({manual:true,reason:'connect'});} // 接続失敗でも端末保存を維持し、通信障害なら有限回だけ復旧します。"
+  },
+  {
+    "file": "app.mjs",
+    "before": "$('refresh').onclick=()=>guard(async()=>refreshState(await request('state')));$('syncNow').onclick=()=>guard(synchronize);",
+    "after": "$('refresh').onclick=()=>guard(async()=>{refreshState(await request('state'));if(auth.account&&!auth.needsInteraction)await synchronize({manual:true,reason:'refresh'});});$('syncNow').onclick=()=>guard(()=>synchronize({manual:true}));"
+  },
+  {
+    "file": "app.mjs",
+    "before": "window.addEventListener('online',()=>guard(synchronize));",
+    "after": "window.addEventListener('online',()=>{retryBlockedUntil=0;guard(()=>synchronize({reason:'online'}));});"
+  },
+  {
+    "file": "app.mjs",
+    "before": "await synchronize();});}); ",
+    "after": "if(!syncErrorCode||retryableSync(syncErrorCode))await synchronize({reason:'resume'});});}); "
+  },
+  {
+    "file": "app.mjs",
+    "before": "if(auth.account)try{await connectCloud(auth.consumeConnectionIntent?.()||false);}catch(error){if(error.code!=='NOT_PROVISIONED')message(error.message,true);else message('本人の保存領域です。「接続・バックアップ」から保存フォルダを接続してください。');}",
+    "after": "if(auth.account){const consent=auth.consumeConnectionIntent?.()||false;void connectCloud(consent).catch(error=>{if(error.code!=='NOT_PROVISIONED')message(error.message,true);else message('本人の保存領域です。「接続・バックアップ」から保存フォルダを接続してください。');});}"
+  },
+  {
+    "file": "app.mjs",
+    "before": "$('storageStatus').closest('.statusbar').dataset.tone=view.tone;",
+    "after": "if(sending&&!cloudReady){$('storageStatus').textContent='↻ OneDriveに再接続中…';$('connectionStatus').textContent='練習は端末に保存できます。';}else if(auth.needsInteraction){$('storageStatus').textContent='Microsoftの再接続が必要です';$('connectionStatus').textContent='端末の保存は保持しています。';}else if(retryAt>Date.now()){const label='通信を再確認します（'+Math.ceil((retryAt-Date.now())/1000)+'秒後）';$('connectionStatus').textContent=label;$('connectionExplanation').textContent=label+'。保存済みの記録は端末に残っています。';}$('storageStatus').closest('.statusbar').dataset.tone=view.tone;"
+  },
+  {
+    "file": "app.mjs",
+    "before": "if(auth.account&&!auth.needsInteraction&&!chooseAccount){if(!cloudReady)await connectCloud(true);else await synchronize();return;}",
+    "after": "if(auth.account&&!auth.needsInteraction&&!chooseAccount){retryCount=0;retryAt=0;retryBlockedUntil=0;if(!cloudReady)await connectCloud(true);else await synchronize({manual:true});return;}"
+  },
+  {
+    "file": "app.mjs",
+    "before": "if(dirty){event.preventDefault();event.returnValue='';}",
+    "after": "if(dirty||saving||sending||state?.pending||mediaSession?.summary().pending){event.preventDefault();event.returnValue='';}"
+  },
+  {
+    "file": "core/graph.mjs",
+    "before": "const text=await this.client.readText(m);ensure(text===canonical(this.markerValue())",
+    "after": "const text=await this.client.readText(m,{metadata:m['@microsoft.graph.downloadUrl']?m:null});ensure(text===canonical(this.markerValue())"
+  },
+  {
+    "file": "app.mjs",
+    "before": "async function openWorker(){const scope=auth.scope();",
+    "after": "async function openWorker(){clearTimeout(autoSync);syncAgain=false;retryCount=0;retryAt=0;retryBlockedUntil=0;serverBackoffUntil=0;syncErrorCode='';syncFailure='';sending=false;cloudReady=false;const scope=auth.scope();"
+  },
+  {
+    "file": "config.mjs",
+    "before": "1.3.1",
+    "after": "1.3.2",
+    "count": 1
+  },
+  {
+    "file": "core/service.mjs",
+    "before": "1.3.1",
+    "after": "1.3.2",
+    "count": 1
+  },
+  {
+    "file": "index.html",
+    "before": "1.3.1",
+    "after": "1.3.2",
+    "count": 2
+  },
+  {
+    "file": "sw.js",
+    "before": "1.3.1",
+    "after": "1.3.2",
+    "count": 2
+  }
+]
