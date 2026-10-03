@@ -1,7 +1,7 @@
 name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します。
 on: # 本番以外のブランチでは検証のみ行います。
   push: # コードと検査の変更を検証します。
-    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131] # 検証ブランチから本番配信しません。
+    branches: [main, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience] # 検証ブランチから本番配信しません。
     paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明のみの更新で再配信しません。
   workflow_dispatch: # 本人による再実行を許可します。
 permissions: # 通常の処理を読取専用にします。
@@ -39,7 +39,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           python3 -m venv .image-env # 画像変換の環境を分けます。
           .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 既存アイコンを変えません。
           node tools/build-release.mjs # 元の全バイトを照合します。
-          node production/prepare.mjs # 許可した1.3.1だけを生成します。
+          node production/prepare.mjs # 許可した1.3.2だけを生成します。
       - name: Install pinned browsers # 両ブラウザを準備します。
         working-directory: upstream/practice-ui-lab/app # 依存部品を本体に混ぜません。
         run: | # 検証ツールを固定します。
@@ -48,9 +48,10 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 元の検証に添付検査を加えます。
         working-directory: upstream/practice-ui-lab/app # 本体と同じコードを使います。
         run: | # 一つでも失敗すれば公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs # 既存122件と新規71件を実行します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs # 既存122件と新規71件を実行します。
           node tools/network-browser.mjs # 元の通信境界を検査します。
           node tools/save-status-browser.mjs # 同期と未保存の表示を確認します。
+          node tools/connection-browser.mjs # 認証・通信断・再試行と重複防止を両エンジンで確認します。
       - name: Check existing UI and data upgrade # 原本・コピー・休憩・更新を検証します。
         working-directory: upstream/practice-ui-lab/app # 同じ候補を対象にします。
         run: | # 既存の合格条件を維持します。
