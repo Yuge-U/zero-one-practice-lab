@@ -40,4 +40,8 @@ let scenarios=await readFile(join(root,'tools/production-scenarios.mjs'),'utf8')
 scenarios=replace(scenarios,String.raw`/1\.3\.3/`,String.raw`/1\.3\.4/`); // 旧版番号が残った表示確認だけを更新します。
 scenarios=replace(scenarios,"version:'1.3.3'","version:'1.3.4'"); // 検証記録にも実行対象の版を記録します。
 await writeFile(join(root,'tools/production-scenarios.mjs'),scenarios); // 全受入シナリオと判定件数は維持します。
+for(const name of ['connection-browser.mjs','sync-latency-browser.mjs','save-status-browser.mjs','catalog-browser.mjs','reference-browser.mjs','media-browser.mjs']){const file=join(root,'tools',name);const source=await readFile(file,'utf8');await writeFile(file,replace(source,"version:'1.3.3'","version:'1.3.4'"));} // すべての検証記録を実行対象の版へ揃えます。
+let media=await readFile(join(root,'tools/media-browser.mjs'),'utf8'); // 写真・動画の画面検査も公開版を確認します。
+media=replace(media,String.raw`/1\.3\.3/`,String.raw`/1\.3\.4/`); // 旧版を前提にしたフッター判定を更新します。
+await writeFile(join(root,'tools/media-browser.mjs'),media); // 写真・動画の必須ケースはそのまま実行します。
 console.log('1.3.4 candidate: saved ordered menu structures and insert-at-position controls.'); // 新機能の範囲を記録します。
