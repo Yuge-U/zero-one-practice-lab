@@ -75,3 +75,9 @@ Microsoftのアプリ登録、権限、アプリIDは変更しない。Webサイ
 - Microsoft: [MSAL cache](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/caching)
 - Microsoft: [Graph best practices](https://learn.microsoft.com/en-us/graph/best-practices-concept)
 - Microsoft: [Graph throttling](https://learn.microsoft.com/en-us/graph/throttling)
+
+## CIの最終確認
+
+コードコミット `f44e3a44fe66dd9d3de3b0c670b7ba3f6f4c886a` の [CI 37102240200](https://github.com/Yuge-U/zero-one-practice-lab/actions/runs/37102240200) は、Ubuntu 24.04・macOS 15の両buildでsuccess。Node 22.16.0 / Playwright 1.63.0を使用し、配信バイト照合、新旧認証再現、既存画面、更新保持、分類、参考資料、写真動画の全必須ステップがsuccessであることをジョブ結果とログで確認した。単体は各OS213件・失敗0・skip0。
+
+検証ブランチのため公開成果物の配信処理、deploy、公開後verify-liveは実行していない。公開後試験が合格したという意味ではない。[Draft PR #12](https://github.com/Yuge-U/zero-one-practice-lab/pull/12) に修正と検証記録をまとめ、実アカウント受入を未確認のまま完了扱いにしていない。
