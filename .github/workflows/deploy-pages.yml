@@ -1,4 +1,4 @@
-name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します。
+name: ZERO ONE PRACTICE production release # このアプリだけを検証して公開します（ブランド反映も全検証）。
 on: # 本番以外のブランチでは検証のみ行います。
   push: # コードと検査の変更を検証します。
     branches: [main, brand/practice-approved-20261007, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience, fix/sync-latency-recovery] # 検証ブランチから本番配信しません。
