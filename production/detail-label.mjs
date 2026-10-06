@@ -3,7 +3,7 @@ import {join,resolve} from 'node:path'; // 対象アプリの位置を固定し�
 import {createHash} from 'node:crypto'; // 直前の配信バイトとの一致を確認します。
 import assert from 'node:assert/strict'; // 想定外の差分があれば配信を止めます。
 const root=resolve(process.argv[2]); // 既存ビルドが作成した作業コピーを使います。
-const hashes={'app.mjs':'228110281cbb91d86339d8b59cf87d5af58bfbd61d187c4fdc93386920151062','config.mjs':'df10fc1be5468364197bcb28a9ba447dbfe4ea59cf486926090920e441e184d8','core/service.mjs':'b98d921f0525cb420e748a7e910a22f97db8ac2a1f228b1ba9f171d446220dd2','index.html':'5447a0ba27e9994499b1b9ea6f5b0437f1047ba2fdb82f3dad9ada72b0c575c0','sw.js':'aeb1d3b3edda17b13fa62b814e7da69e9ee0344113f0b761ac9418ce26091b79'}; // 検証済み1.3.0からの表示変更だけを許可します。
+const hashes={'app.mjs':'228110281cbb91d86339d8b59cf87d5af58bfbd61d187c4fdc93386920151062','config.mjs':'df10fc1be5468364197bcb28a9ba447dbfe4ea59cf486926090920e441e184d8','core/service.mjs':'b98d921f0525cb420e748a7e910a22f97db8ac2a1f228b1ba9f171d446220dd2','index.html':'2aa94cd71b7545f82f692f6375e7cb603390795d6490c4751dd49fed4df0bf42','sw.js':'aeb1d3b3edda17b13fa62b814e7da69e9ee0344113f0b761ac9418ce26091b79'}; // 検証済み1.3.0からの表示変更だけを許可します。
 for(const [name,hash]of Object.entries(hashes)){ // 変更予定の全ファイルを最初に照合します。
   const bytes=await readFile(join(root,'web',name));assert.equal(createHash('sha256').update(bytes).digest('hex'),hash,'Unexpected 1.3.0 bytes: '+name); // 不一致の状態では置換しません。
 } // 既存データやOneDriveへアクセスする処理はありません。
