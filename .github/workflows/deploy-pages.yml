@@ -122,7 +122,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python # アイコン条件を維持します。
         run: | # 事前検証と同じ配信物を再構成します。
           python3 -m venv .image-env # 画像変換の作業環境です。
-          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 # 既存アイコンを一致させます。
+          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 cairosvg==2.8.2 # 既存アイコンを一致させます。
           node tools/build-release.mjs # 元の配信物を照合します。
           node production/prepare.mjs # 今回の配信値を照合します。
           cd upstream/practice-ui-lab/app # 検証フォルダーへ移ります。
