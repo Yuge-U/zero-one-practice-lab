@@ -15,3 +15,6 @@ print('Approved PRACTICE icon',len(raw),hashlib.sha256(raw).hexdigest()) # å®Ÿéš
 image.convert('RGBA').save(root/'icons'/'favicon-practice-20261007f.ico', format='ICO', sizes=[(16,16),(32,32),(48,48)], bitmap_format='bmp')
 (root/'icons'/'favicon.ico').write_bytes((root/'icons'/'favicon-practice-20261007f.ico').read_bytes())
 image.resize((32,32),Image.Resampling.LANCZOS).save(root/'icons'/'favicon-practice-32-20261007f.png', 'PNG')
+
+for size in (180,192):
+    image.resize((size,size),Image.Resampling.LANCZOS).save(root/"icons"/f"safari-practice-{size}-20261007g.png", "PNG")

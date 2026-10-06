@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files": ["favicon.ico", "favicon-practice-20261007f.ico", "favicon-practice-32-20261007f.png", "index.html", "manifest.webmanifest", "sw.js", "icons/icon-192.webp", "icons/icon-512.webp", "icons/apple-touch-icon.png"], "selector": ".brand img,.zeroone-splash img", "root": "_site"};
+const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files": ["safari-practice-180-20261007g.png", "safari-practice-192-20261007g.png", "favicon.ico", "favicon-practice-20261007f.ico", "favicon-practice-32-20261007f.png", "index.html", "manifest.webmanifest", "sw.js", "icons/icon-192.webp", "icons/icon-512.webp", "icons/apple-touch-icon.png"], "selector": ".brand img,.zeroone-splash img", "root": "_site"};
 (async () => {
   const base = process.env.SITE_URL || config.url;
   for (const file of config.files) {
@@ -16,8 +16,9 @@ const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(base, { waitUntil: 'domcontentloaded' });
-    assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), './favicon-practice-20261007f.ico');
-    assert.equal(await page.locator('link[rel="icon"]').getAttribute('type'), 'image/x-icon');
+    assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), './safari-practice-192-20261007g.png');
+    assert.equal(await page.locator('link[rel="icon"]').getAttribute('type'), 'image/png');
+    assert.deepEqual(await page.evaluate(async()=>{const result=[];for(const rel of ['icon','apple-touch-icon']){const img=new Image();img.src=document.querySelector(`link[rel="${rel}"]`).href;await img.decode();result.push([img.naturalWidth,img.naturalHeight]);}return result;}),[[192,192],[180,180]]);
     await page.waitForFunction(() => { const img=document.querySelector('.zeroone-splash img'); return img && img.complete && img.naturalWidth>0; });
     assert.ok((await page.locator('.zeroone-splash img').getAttribute('src')).includes('20261007d'));
     assert.deepEqual(await page.evaluate(async () => {const img=new Image();img.src='favicon-practice-32-20261007f.png';await img.decode();return [img.naturalWidth,img.naturalHeight];}),[32,32]);

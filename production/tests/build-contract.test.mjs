@@ -19,3 +19,6 @@ test('first failure survives a successful upgrade', () => { const calls = []; as
 test('upgrade failure blocks release', () => assert.equal(runSuites(name => ({ status: name.startsWith('upgrade') ? 1 : 0 })), 1)); // 更新時のデータ保持を必須にします。
 test('signal or process startup failure blocks release', () => assert.equal(runSuites(() => ({ status: null, signal: 'SIGTERM' })), 1)); // 異常終了を成功扱いしません。
 test('live suite never pretends to run local upgrade', () => { const calls = []; assert.equal(runSuites(name => { calls.push(name); return { status: 0 }; }, true), 0); assert.deepEqual(calls, ['production-scenarios.mjs']); }); // 実行範囲を正確に保ちます。
+
+test("accept dedicated Safari artwork", () => assert.equal(new URL(resolveAppleTouchIcon("./safari-practice-180-20261007g.png", base)).pathname, "/zero-one-practice-lab/safari-practice-180-20261007g.png"));
+test("reject another app Safari artwork", () => assert.throws(() => resolveAppleTouchIcon("../zero-one-roster/safari-roster-180-20261007g.png", base)));
