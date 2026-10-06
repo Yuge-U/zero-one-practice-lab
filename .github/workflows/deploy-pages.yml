@@ -1,7 +1,7 @@
 name: ZERO ONE PRACTICE production release # 承認済みブランド反映を全検証して本番公開します。
 on: # 本番以外のブランチでは検証のみ行います。
   push: # コードと検査の変更を検証します。
-    branches: [main, brand/practice-approved-20261007, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience, fix/sync-latency-recovery] # 検証ブランチから本番配信しません。
+    branches: [main, brand/reference-quality-20261007, brand/practice-approved-20261007, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience, fix/sync-latency-recovery] # 検証ブランチから本番配信しません。
     paths: ['production/**', '!production/practice-icon.svg', '!production/icons/**', '!production/series.css', '!production/patch.mjs', '!production/render-practice-icon.py', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明のみの更新で再配信しません。
   workflow_dispatch: # 本人による再実行を許可します。
 permissions: # 通常の処理を読取専用にします。
@@ -132,6 +132,11 @@ jobs: # 検証・配信・公開後確認を分離します。
         env: # 公式の公開URLを使います。
           SITE_URL: ${{ needs.deploy.outputs.page_url }} # 他サイトを確認しません。
         run: node production/check-public.mjs # SHA-256を一致させます。
+      - name: Verify brand artwork and startup screen
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.page_url }}
+          PLAYWRIGHT_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules/playwright
+        run: node production/verify-brand.cjs
       - name: Save copy status categories references and media on public HTTPS # 実URL上で操作を確認します。
         working-directory: upstream/practice-ui-lab/app # 個人データは使用しません。
         env: # 本番URLを渡します。
@@ -149,6 +154,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           name: practice-production-live # 事前検証とは分けます。
           path: | # 実測した結果を保存します。
             reports/live-files.json
+            production-*.png
             upstream/practice-ui-lab/app/reports/production-live/
             upstream/practice-ui-lab/app/reports/save-status-live/
             upstream/practice-ui-lab/app/reports/catalog-live/

@@ -2,9 +2,9 @@ from pathlib import Path # 承認済み画像と変換結果の場所を指定�
 from PIL import Image # 画像の再描画をせず寸法だけを変換します。
 import hashlib, struct, zlib # PNG形式の決定的なバイト列を作ります。
 root = Path(__file__).resolve().parent / 'icons' # 今回のリリース画像だけを対象にします。
-source = (root / 'icon-512.webp').read_bytes() # 転送済みの承認画像を読みます。
+source = (root.parent / 'brand' / 'practice-master.png').read_bytes() # 転送済みの承認画像を読みます。
 assert len(source) > 0 # リリースに同梱した承認済み画像が存在することを確認します。
-image = Image.open(root / 'icon-512.webp').convert('RGB').resize((180, 180), Image.Resampling.LANCZOS) # iPhoneのホーム画面用に縮小します。
+image = Image.open(root.parent / 'brand' / 'practice-master.png').convert('RGB').resize((180, 180), Image.Resampling.LANCZOS) # iPhoneのホーム画面用に縮小します。
 pixels = image.tobytes() # 原図を保持したRGB値を取り出します。
 raw = b''.join(b'\x00' + pixels[row * 540:(row + 1) * 540] for row in range(180)) # PNGの各行に無変換フィルターを付けます。
 blocks = [raw[index:index + 65535] for index in range(0, len(raw), 65535)] # 圧縮実装の差に依存しない保存ブロックへ分けます。

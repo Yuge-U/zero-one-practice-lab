@@ -42,6 +42,8 @@ execFileSync(process.execPath,['production/sync-latency-update.mjs',app],{stdio:
 await copyFile('production/sync-latency.test.mjs',join(app,'tests/sync-latency.test.mjs')); // 遅延と結果不明の回帰を必須にします。
 await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latency-browser.mjs')); // 両エンジンで遅延中の保存と復帰を検証します。
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
+// Refresh the app-shell cache for the artwork release without changing data/version contracts.
+const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-brand-20261007d'"));
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
