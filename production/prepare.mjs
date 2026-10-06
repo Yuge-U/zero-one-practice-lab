@@ -41,7 +41,8 @@ await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latenc
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site');await rm(output,{recursive:true,force:true});await mkdir(output); // ビルド出力のみを作り直します。
-await copyFile('production/practice-icon.svg',join(app,'web/practice-icon.svg')); // Safariタブ用の正式SVGロゴを公開物へ含めます。\nconst files=[]; // 公開バイトの証拠を収集します。 // 公開バイトの証拠を収集します。
+await copyFile('production/practice-icon.svg',join(app,'web/practice-icon.svg')); // Safariタブ用の正式SVGロゴを公開物へ含めます。
+const files=[]; // 公開バイトの証拠を収集します。
 const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // ブランド画像・Splash・見た目だけは固定SHAではなく構造検証にします。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // Coreは固定SHA、UI資産は構造検証へ分離します。
 for(const name of ['icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']){const bytes=await readFile(join(app,'web',name));assert(bytes.length>1000,'UI icon too small: '+name);} // 空画像や破損した生成物を拒否します。
