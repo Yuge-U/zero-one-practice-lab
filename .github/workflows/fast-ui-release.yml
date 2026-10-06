@@ -1,0 +1,81 @@
+name: ZERO ONE PRACTICE fast UI release
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'production/practice-icon.svg'
+      - 'production/icons/**'
+      - 'production/series.css'
+      - 'production/patch.mjs'
+      - 'production/render-practice-icon.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: practice-ui-release
+  cancel-in-progress: true
+jobs:
+  ui-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Yuge-U/basketball-tactics-board
+          ref: b9390aa320ec39a19f649849a1111e26e4968453
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Build UI release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_PYTHON: ${{ github.workspace }}/.image-env/bin/python
+        run: |
+          python3 -m venv .image-env
+          .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 cairosvg==2.8.2
+          node tools/build-release.mjs
+          node production/prepare.mjs
+      - name: Minimal integrity checks
+        run: |
+          test -s _site/index.html
+          test -s _site/app.mjs
+          test -s _site/core/service.mjs
+          test -s _site/icons/icon-192.webp
+          test -s _site/icons/icon-512.webp
+          grep -q "ZERO ONE" _site/index.html
+          grep -q "PRACTICE" _site/index.html
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+  deploy:
+    needs: ui-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Public smoke check
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          curl --fail --retry 3 --retry-delay 3 "${SITE_URL}" | grep -q "ZERO ONE"
+          curl --fail --retry 3 --retry-delay 3 "${SITE_URL}icons/icon-192.webp" -o /tmp/icon.webp
+          test -s /tmp/icon.webp
