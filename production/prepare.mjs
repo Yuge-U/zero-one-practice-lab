@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'; // 不一致があれば公開を止め
 const app=resolve('upstream/practice-ui-lab/app'); // 既存アプリとは別の作業コピーです。
 const base=JSON.parse(await readFile('reports/release-build.json','utf8'));assert.equal(base.release,'0.3.2'); // 旧版の照合を必須とします。
 await cp(join(app,'web'),join(app,'baseline-web'),{recursive:true}); // 既存の更新検証と旧通信コード再現の基準を残します。
+execFileSync(process.env.IMAGE_PYTHON||'python3',['production/render-practice-icon.py'],{stdio:'inherit'}); // ZERO ONE PRACTICE正式アイコンを生成します。
 execFileSync(process.env.IMAGE_PYTHON||'python3',['production/prepare-icons.py'],{stdio:'inherit'}); // 承認済みアイコンの変換条件を維持します。
 const iconData={};for(const name of ['icon-192.webp','icon-512.webp','apple-touch-icon.png'])iconData[name]=(await readFile(join('production/icons',name))).toString('base64'); // 検証済み画像を準備します。
 await writeFile('production/icons.json',JSON.stringify(iconData)); // ビルド内だけで画像情報を渡します。
