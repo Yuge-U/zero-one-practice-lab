@@ -9,17 +9,17 @@ for (const asset of manifest.assets) { // 指定された画像だけを扱い�
   let bytes = await readFile('branding/import/' + asset.name); // 検証用ブランチの受信画像を読みます。
   const receivedSha256 = createHash('sha256').update(bytes).digest('hex'); // 受信したバイトのハッシュを記録します。
   await writeFile('branding/import/evidence/' + asset.name, bytes); // 未加工の受信画像を証拠に残します。
-  if (asset.repairs?.length) { // 転送文字列の誤りだけを指定位置で修復します。
+  if (asset.base64Repairs?.length) { // 転送文字列の誤りだけを指定位置で修復します。
     assert.equal(receivedSha256, asset.receivedSha256, 'Unexpected input; repair aborted'); // 入力が異なる場合は修復しません。
-    let end = bytes.length; // 後ろからの修正で位置の変化を避けます。
-    for (const repair of [...asset.repairs].sort((a,b) => b.offset-a.offset)) { // 正確な位置に限定して修復します。
-      const before = Buffer.from(repair.before, 'hex'); // 誤って受信した既知のバイトを指定します。
-      const after = Buffer.from(repair.after, 'hex'); // 承認原本の正しいバイトを指定します。
-      assert(Number.isInteger(repair.offset) && repair.offset >= 0 && repair.offset + before.length <= end); // 重複範囲と範囲外を拒否します。
-      assert(bytes.subarray(repair.offset, repair.offset + before.length).equals(before), 'Unexpected repair bytes'); // あいまいな置換を行いません。
-      bytes = Buffer.concat([bytes.subarray(0, repair.offset), after, bytes.subarray(repair.offset + before.length)]); // 指定範囲のみ置換します。
+    let text = bytes.toString('base64'); // 符号化時の文字ずれを検証します。
+    let end = text.length; // 後ろからの修正で位置の変化を避けます。
+    for (const repair of [...asset.base64Repairs].sort((a,b) => b.offset-a.offset)) { // 正確な位置に限定して修復します。
+      assert(Number.isInteger(repair.offset) && repair.offset >= 0 && repair.offset + repair.before.length <= end); // 重複範囲と範囲外を拒否します。
+      assert.equal(text.slice(repair.offset, repair.offset + repair.before.length), repair.before, 'Unexpected transfer text'); // あいまいな置換を行いません。
+      text = text.slice(0, repair.offset) + repair.after + text.slice(repair.offset + repair.before.length); // 指定範囲のみ置換します。
       end = repair.offset; // 次の修正範囲の上限を更新します。
     } // 指定箇所の修復を閉じます。
+    bytes = Buffer.from(text, 'base64'); // 原本ハッシュを確認するためバイトへ戻します。
   } // 入力修復を閉じます。
   const actual = createHash('sha256').update(bytes).digest('hex'); // 修復後も原本一致を必須にします。
   const result = { name: asset.name, bytes: bytes.length, receivedSha256, sha256: actual, expected: asset.sha256, matched: actual === asset.sha256 }; // 診断情報だけを記録します。
