@@ -43,7 +43,7 @@ await copyFile('production/sync-latency.test.mjs',join(app,'tests/sync-latency.t
 await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latency-browser.mjs')); // 両エンジンで遅延中の保存と復帰を検証します。
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
 // Refresh the app-shell cache for the artwork release without changing data/version contracts.
-const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-brand-20261007d'"));
+const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-brand-20261007f'"));
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
@@ -51,6 +51,12 @@ const files=[]; // 公開バイトの証拠を実際のコード行で初期化�
 const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // Coreは従来どおり固定SHAで検証します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // 全必須ファイルを照合してから候補へ書き込みます。
 for(const name of ['icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']){const bytes=await readFile(join(app,'web',name));assert(bytes.length>1000,'UI icon too small: '+name);} // 空画像や破損した生成物を拒否します。
+for(const name of ['favicon.ico','favicon-practice-20261007f.ico','favicon-practice-32-20261007f.png']) {
+  const bytes=await readFile(join('production/icons',name));
+  if(name.endsWith('.ico')) {assert.equal(bytes.readUInt16LE(2),1);assert.equal(bytes.readUInt16LE(4),3);assert.deepEqual([bytes[6],bytes[22],bytes[38]],[16,32,48]);}
+  await writeFile(join(app,'web',name),bytes);await writeFile(join(output,name),bytes);
+  files.push({name,sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length,gate:'ui-validated'});
+}
 const brandBytes=await readFile(join(app,'web/brand-logo.svg'));assert(brandBytes.length>500&&brandBytes.toString('utf8').includes('<svg'),'ZERO ONE brand logo invalid');await writeFile(join(output,'brand-logo.svg'),brandBytes); // 共通ロゴも公開候補へ含めます。
 assertApplePng(await readFile(join(output,'icons/apple-touch-icon.png'))); // 配信するPNG本体の形式と180pxの寸法を検証します。
 const manifest=JSON.parse(await readFile(join(app,'web/manifest.webmanifest'),'utf8'));assert.equal(manifest.name,'ZERO ONE PRACTICE');assert(manifest.icons.some(icon=>icon.src.includes('icon-192.webp')));assert(manifest.icons.some(icon=>icon.src.includes('icon-512.webp'))); // PWAが正式アイコンを参照していることを確認します。

@@ -10,3 +10,8 @@ assert image.width==image.height and image.width>=1024 # 正方形かつ十分�
 image.resize((512,512),Image.Resampling.LANCZOS).save(root/'icons'/'icon-512.webp','WEBP',quality=96,method=6) # PWA用512pxを生成します。
 image.resize((192,192),Image.Resampling.LANCZOS).save(root/'icons'/'icon-192.webp','WEBP',quality=96,method=6) # PWA用192pxを生成します。
 print('Approved PRACTICE icon',len(raw),hashlib.sha256(raw).hexdigest()) # 実際に使った原版を証拠へ出します。
+
+# Separate, versioned browser-tab artwork; legacy BMP entries work without WebP support.
+image.convert('RGBA').save(root/'icons'/'favicon-practice-20261007f.ico', format='ICO', sizes=[(16,16),(32,32),(48,48)], bitmap_format='bmp')
+(root/'icons'/'favicon.ico').write_bytes((root/'icons'/'favicon-practice-20261007f.ico').read_bytes())
+image.resize((32,32),Image.Resampling.LANCZOS).save(root/'icons'/'favicon-practice-32-20261007f.png', 'PNG')
