@@ -1,5 +1,6 @@
 import { chromium, webkit } from 'playwright'; // 実際のブラウザエンジンを使用します。
 import assert from 'node:assert/strict'; // 合否を実際の保存結果で判定します。
+import { verifyAppleTouchIcon } from './icon-contract.mjs'; // 更新番号ではなく正しい画像本体を確認します。
 import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises'; // 合成記録と証拠だけを扱います。
 import { join, resolve } from 'node:path'; // 証拠とプロファイルを分離します。
 import { tmpdir } from 'node:os'; // 試験専用OSホームを用意します。
@@ -19,7 +20,7 @@ try{ // 片方のブラウザの失敗も記録して検証します。
     const context=await isolated(engine);const page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push({engine:name,message:error.message})); // 未捕捉の画面エラーも不合格にします。
     try{ // 各エンジンの実画面を検査します。
       await page.goto(url);await ready(page); // 公開対象アプリを通常どおり起動します。
-      await check(name,'R01 本番表示・承認済みアイコン・保存準備',async()=>{assert.match(await page.locator('footer').innerText(),/1\.0\.0/);assert.match(await page.locator('#environment').innerText(),/SQLite.*OPFS/);assert(!await page.locator('body').innerText().then(text=>text.includes('検証版・本番とは別保存')));await page.locator('.brand img').evaluate(img=>img.decode());assert.equal(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href'),'./icons/apple-touch-icon.png');}); // 見た目だけでなく実画像の読込も確認します。
+      await check(name,'R01 本番表示・承認済みアイコン・保存準備',async()=>{assert.match(await page.locator('footer').innerText(),/1\.0\.0/);assert.match(await page.locator('#environment').innerText(),/SQLite.*OPFS/);assert(!await page.locator('body').innerText().then(text=>text.includes('検証版・本番とは別保存')));await page.locator('.brand img').evaluate(img=>img.decode());await verifyAppleTouchIcon(page);}); // 実際のPNGとブラウザでの復号も確認します。
       await check(name,'R02 必須未入力は保存ボタン付近に理由を表示',async()=>{await page.locator('#savePlan').click();assert.match(await page.locator('#saveFeedback').innerText(),/練習名を入力/);assert.equal(await page.locator('#title').getAttribute('aria-invalid'),'true');assert.equal(await page.locator('.saved-card').count(),0);}); // 無反応ではなく具体的な理由を返します。
       await check(name,'R03 時間超過で入力を失わず停止',async()=>{await page.locator('#title').fill('本番受入・原本');await page.locator('#goal').fill('ヘルプを見る');await page.locator('[data-field="name"]').first().fill('2対2');await page.locator('[data-field="rule"]').first().fill('2ドリブル');await page.locator('#totalMinutes').fill('5');await page.locator('#savePlan').click();assert.match(await page.locator('#saveFeedback').innerText(),/合計は10分/);assert.equal(await page.locator('#title').inputValue(),'本番受入・原本');assert.equal(await page.locator('.saved-card').count(),0);}); // 失敗後にそのまま修正できることを確認します。
       await check(name,'R04 空のVariation・二項目を保存し連打は重複なし',async()=>{await page.locator('#totalMinutes').fill('60');await page.locator('[data-field="variationName"]').first().fill('');await page.locator('#addItem').click();await page.locator('[data-field="name"]').nth(1).fill('3対3');await page.locator('#savePlan').click();await saved(page);await page.locator('#savePlan').click();assert.match(await page.locator('#saveFeedback').innerText(),/保存済み/);await library(page);assert.equal(await page.locator('.saved-card').count(),1);}); // 保存確認後の連打を新規登録しません。
