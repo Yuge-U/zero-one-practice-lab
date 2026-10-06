@@ -1,0 +1,33 @@
+name: Verify approved artwork transfer # 本番配信から独立した画像転送検証です。
+on: # 本番ブランチでは実行しません。
+  push: # 専用の検証ブランチだけを対象にします。
+    branches: [fix/approved-brand-assets-20261006] # アプリの公開先には反映しません。
+    paths: ['branding/import/**', '.github/workflows/import-approved-artwork.yml'] # 画像転送だけを対象にします。
+  workflow_dispatch: # 手動でも同じ検証を実行できます。
+permissions: # 通常は読み取りだけを許可します。
+  contents: read # 個人のMicrosoft情報にはアクセスしません。
+jobs: # 画像だけを検証します。
+  verify: # 原本ハッシュの一致を必須にします。
+    if: github.ref == 'refs/heads/fix/approved-brand-assets-20261006' # 本番での実行を拒否します。
+    runs-on: ubuntu-24.04 # 固定した実行環境です。
+    timeout-minutes: 3 # 無期限の実行を防ぎます。
+    permissions: # 一致した画像のGitオブジェクト登録に限定して使います。
+      contents: write # 本番ブランチや公開先は更新しません。
+    steps: # 外部の画像サービスは利用しません。
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 検証対象のコミットを取得します。
+        with: # Git認証を保存しません。
+          persist-credentials: false # 後続のGit pushは使用しません。
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 実行環境を固定します。
+        with: # 本番と同じNodeです。
+          node-version: '22.16.0' # 実行時差異を抑えます。
+      - name: Verify exact artwork bytes # 原本との一致を確認します。
+        env: # 短期のリポジトリトークンだけを使います。
+          GITHUB_TOKEN: ${{ github.token }} # 機密情報をログへ出しません。
+        run: node branding/import/import-assets.mjs # 画像の一致が確認できた場合だけGitオブジェクトを登録します。
+      - name: Preserve transfer evidence # 不一致の原因も確認できるようにします。
+        if: always() # エラーでも証拠を残します。
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 検査対象の画像と結果だけを保存します。
+        with: # アプリのデータや認証情報は含みません。
+          name: approved-artwork-transfer # 画像転送の証拠です。
+          path: branding/import/evidence/ # 受信画像とハッシュだけです。
+          retention-days: 3 # 一時検証のため短期間だけ保存します。
