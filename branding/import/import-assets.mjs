@@ -27,8 +27,8 @@ for (const asset of manifest.assets) { // 指定された画像だけを扱い�
   if (!result.matched) continue; // 不一致の画像はGitオブジェクトとして登録しません。
   assert.equal(bytes.subarray(0,4).toString('ascii'), 'RIFF'); // WebPの先頭形式を確認します。
   assert.equal(bytes.subarray(8,12).toString('ascii'), 'WEBP'); // 別形式のファイルを拒否します。
-  const response = await fetch('https://api.github.com/repos/' + process.env.GITHUB_REPOSITORY + '/git/blobs', { method:'POST', headers:{ Authorization:'Bearer '+process.env.GITHUB_TOKEN, Accept:'application/vnd.github+json', 'Content-Type':'application/json', 'X-GitHub-Api-Version':'2022-11-28' }, body:JSON.stringify({content:bytes.toString('base64'),encoding:'base64'}) }); // 一致した画像だけを同じリポジトリへ登録します。
-  assert(response.ok(), 'Image object upload failed: ' + response.status); // APIの失敗を成功扱いしません。
+  const response = await fetch('https://api.github.com/repos/' + process.env.GITHUB_REPOSITORY + '/git/blobs', { method:'POST', signal:AbortSignal.timeout(30000), headers:{ Authorization:'Bearer '+process.env.GITHUB_TOKEN, Accept:'application/vnd.github+json', 'Content-Type':'application/json', 'X-GitHub-Api-Version':'2022-11-28' }, body:JSON.stringify({content:bytes.toString('base64'),encoding:'base64'}) }); // 一致した画像だけを同じリポジトリへ登録します。
+  assert(response.ok === true, 'Image object upload failed: ' + response.status); // ネイティブFetchのokは関数ではなく真偽値です。
   const data = await response.json(); // 実際に登録されたGitオブジェクトを受け取ります。
   const expectedGitSha = createHash('sha1').update(Buffer.concat([Buffer.from('blob '+bytes.length+'\0'),bytes])).digest('hex'); // Gitと同じ方法でオブジェクトIDを計算します。
   assert.equal(data.sha, expectedGitSha, 'Git object mismatch'); // サーバー側の一致も検証します。
