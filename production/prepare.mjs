@@ -44,11 +44,12 @@ await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latenc
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
-await copyFile('production/practice-icon.svg',join(app,'web/practice-icon.svg')); // 既存のSVG参照を保持します。
+await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
 const files=[]; // 公開バイトの証拠を実際のコード行で初期化します。
 const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // Coreは従来どおり固定SHAで検証します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // 全必須ファイルを照合してから候補へ書き込みます。
 for(const name of ['icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']){const bytes=await readFile(join(app,'web',name));assert(bytes.length>1000,'UI icon too small: '+name);} // 空画像や破損した生成物を拒否します。
+const brandBytes=await readFile(join(app,'web/brand-logo.svg'));assert(brandBytes.length>500&&brandBytes.toString('utf8').includes('<svg'),'ZERO ONE brand logo invalid');await writeFile(join(output,'brand-logo.svg'),brandBytes); // 共通ロゴも公開候補へ含めます。
 assertApplePng(await readFile(join(output,'icons/apple-touch-icon.png'))); // 配信するPNG本体の形式と180pxの寸法を検証します。
 const manifest=JSON.parse(await readFile(join(app,'web/manifest.webmanifest'),'utf8'));assert.equal(manifest.name,'ZERO ONE PRACTICE');assert(manifest.icons.some(icon=>icon.src.includes('icon-192.webp')));assert(manifest.icons.some(icon=>icon.src.includes('icon-512.webp'))); // PWAが正式アイコンを参照していることを確認します。
 const brandedHtml=await readFile(join(app,'web/index.html'),'utf8');assert(brandedHtml.includes('ZERO ONE'));assert(brandedHtml.includes('PRACTICE'));assert(brandedHtml.includes('apple-touch-icon.png')); // ブランド表示とiPhoneアイコン参照を必須にします。

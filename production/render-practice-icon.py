@@ -1,11 +1,12 @@
-from pathlib import Path # ZERO ONE PRACTICEの原版と出力先を扱います。
-from PIL import Image # SVGから生成済みPNGをWebPへ変換します。
-import cairosvg # SVG原版を高品質なPNGへ描画します。
+from pathlib import Path # 承認済みPRACTICE画像と出力先を扱います。
+from PIL import Image # 承認済み画像を高品質に縮小します。
+import hashlib # 承認済み原版の一致を検証します。
 root=Path(__file__).resolve().parent # productionフォルダを基準にします。
-svg=root/'practice-icon.svg' # ZERO ONE PRACTICEの正式原版です。
-png=root/'icons'/'practice-source.png' # 一時的な高解像度描画です。
-cairosvg.svg2png(bytestring=svg.read_bytes(),write_to=str(png),output_width=512,output_height=512) # 512pxで描画します。
-image=Image.open(png).convert('RGB') # WebP用RGB画像へ統一します。
+source=root/'brand'/'practice-approved.webp' # 承認済みPRACTICEアイコン原版です。
+raw=source.read_bytes() # 変換前の原版バイトを読みます。
+assert hashlib.sha256(raw).hexdigest()=='70b98d1eecb94e8467fb73d8b392422882c85579a7fe36827edc25e014a748d1' # 承認済み原版以外ではビルドを停止します。
+image=Image.open(source).convert('RGB') # WebP原版をRGBへ統一します。
+assert image.width==image.height and image.width>=512 # 正方形かつ十分な解像度を必須にします。
 image.resize((512,512),Image.Resampling.LANCZOS).save(root/'icons'/'icon-512.webp','WEBP',quality=96,method=6) # PWA用512pxを生成します。
 image.resize((192,192),Image.Resampling.LANCZOS).save(root/'icons'/'icon-192.webp','WEBP',quality=96,method=6) # PWA用192pxを生成します。
-png.unlink() # 一時PNGを残しません。
+print('Approved PRACTICE icon',len(raw),hashlib.sha256(raw).hexdigest()) # 実際に使った原版を証拠へ出します。
