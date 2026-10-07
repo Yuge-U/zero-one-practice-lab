@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/icon-platforms.yml']
   workflow_run:
     workflows: ['pages build and deployment', 'ZERO ONE PRACTICE production release', 'ZERO ONE PRACTICE fast UI release']
     types: [completed]
