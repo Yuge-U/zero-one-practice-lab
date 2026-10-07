@@ -58,6 +58,7 @@ for(const name of ['safari-practice-180-20261007g.png','safari-practice-192-2026
   await writeFile(join(app,'web',name),bytes);await writeFile(join(output,name),bytes);
   files.push({name,sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length,gate:'ui-validated'});
 }
+const entryBytes=await readFile('production/brand-entry.js');await writeFile(join(app,'web/brand-entry.js'),entryBytes);await writeFile(join(output,'brand-entry.js'),entryBytes);files.push({name:'brand-entry.js',sha256:createHash('sha256').update(entryBytes).digest('hex'),bytes:entryBytes.length,gate:'ui-validated'});
 const brandBytes=await readFile(join(app,'web/brand-logo.svg'));assert(brandBytes.length>500&&brandBytes.toString('utf8').includes('<svg'),'ZERO ONE brand logo invalid');await writeFile(join(output,'brand-logo.svg'),brandBytes); // 共通ロゴも公開候補へ含めます。
 assertApplePng(await readFile(join(output,'icons/apple-touch-icon.png'))); // 配信するPNG本体の形式と180pxの寸法を検証します。
 const manifest=JSON.parse(await readFile(join(app,'web/manifest.webmanifest'),'utf8'));assert.equal(manifest.name,'ZERO ONE PRACTICE');assert(manifest.icons.some(icon=>icon.src.includes('icon-192.webp')));assert(manifest.icons.some(icon=>icon.src.includes('icon-512.webp'))); // PWAが正式アイコンを参照していることを確認します。
