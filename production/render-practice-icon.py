@@ -18,3 +18,6 @@ image.resize((32,32),Image.Resampling.LANCZOS).save(root/'icons'/'favicon-practi
 
 for size in (180,192):
     image.resize((size,size),Image.Resampling.LANCZOS).save(root/"icons"/f"safari-practice-{size}-20261007g.png", "PNG")
+
+for name in ('apple-touch-practice-180-20261007k.png','apple-touch-icon.png','apple-touch-icon-precomposed.png'):
+    (root/'icons'/name).write_bytes((root/'icons'/'safari-practice-180-20261007g.png').read_bytes())

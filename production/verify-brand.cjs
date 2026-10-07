@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_PATH || 'playwright');
-const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files": ["safari-practice-180-20261007g.png", "safari-practice-192-20261007g.png", "favicon.ico", "favicon-practice-20261007f.ico", "favicon-practice-32-20261007f.png", "brand-entry.js", "index.html", "manifest.webmanifest", "sw.js", "icons/icon-192.webp", "icons/icon-512.webp", "icons/apple-touch-icon.png"], "selector": ".brand img,.zeroone-splash img", "root": "_site"};
+const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files": ["apple-touch-practice-180-20261007k.png", "apple-touch-icon.png", "apple-touch-icon-precomposed.png", "safari-practice-180-20261007g.png", "safari-practice-192-20261007g.png", "favicon.ico", "favicon-practice-20261007f.ico", "favicon-practice-32-20261007f.png", "brand-entry.js", "index.html", "manifest.webmanifest", "sw.js", "icons/icon-192.webp", "icons/icon-512.webp", "icons/apple-touch-icon.png"], "selector": ".brand img,.zeroone-splash img", "root": "_site"};
 (async () => {
   const base = process.env.SITE_URL || config.url;
   for (const file of config.files) {

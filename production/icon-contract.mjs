@@ -6,7 +6,7 @@ export function resolveAppleTouchIcon(href, pageURL) { // 更新番号と画像�
   const actual = new URL(href, pageURL); // 相対URLをブラウザと同じ方法で解決します。
   assert(['http:', 'https:'].includes(actual.protocol), 'Invalid icon protocol'); // 埋込データや実行可能URLを拒否します。
   assert.equal(actual.origin, expected.origin, 'Icon must stay on the app origin'); // 外部サイトへの置換を拒否します。
-  assert([expected.pathname, new URL('./safari-practice-180-20261007g.png', pageURL).pathname].includes(actual.pathname), 'Unexpected Apple touch icon path'); // 別アプリや別画像への参照を拒否します。
+  assert([expected.pathname, new URL('./safari-practice-180-20261007g.png', pageURL).pathname, new URL('./apple-touch-practice-180-20261007k.png', pageURL).pathname].includes(actual.pathname), 'Unexpected Apple touch icon path'); // 別アプリや別画像への参照を拒否します。
   assert(!actual.username && !actual.password && !actual.hash, 'Unexpected icon URL components'); // 資格情報とフラグメントを許可しません。
   const parameters = [...actual.searchParams]; // 更新番号だけを個別に調べます。
   assert(parameters.length <= 1, 'Duplicate or extra icon parameters'); // 重複した更新番号や余分な指定を拒否します。

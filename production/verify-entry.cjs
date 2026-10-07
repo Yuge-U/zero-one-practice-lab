@@ -37,7 +37,7 @@ const oldHtml=`<!doctype html><html><head><link rel="icon" href="brand-logo.svg"
     await old.evaluate(async()=>{await(await navigator.serviceWorker.getRegistration()).update();});
     let active=false;const deadline=Date.now()+15000;
     while(Date.now()<deadline){
-     active=await old.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();if(!r?.active||r.active.state!=='activated'||navigator.serviceWorker.controller!==r.active)return false;return new Promise(resolve=>{const finish=value=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',receive);resolve(value);};const receive=e=>{if(e.source===r.active&&e.data?.type==='offlineStatus')finish(e.data.brandRevision==='20261007i');};const timer=setTimeout(()=>finish(false),500);navigator.serviceWorker.addEventListener('message',receive);r.active.postMessage({type:'offlineCheck'});});});
+     active=await old.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();if(!r?.active||r.active.state!=='activated'||navigator.serviceWorker.controller!==r.active)return false;return new Promise(resolve=>{const finish=value=>{clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',receive);resolve(value);};const receive=e=>{if(e.source===r.active&&e.data?.type==='offlineStatus')finish(e.data.brandRevision==='20261007k');};const timer=setTimeout(()=>finish(false),500);navigator.serviceWorker.addEventListener('message',receive);r.active.postMessage({type:'offlineCheck'});});});
      if(active)break;await new Promise(r=>setTimeout(r,100));
     }
     assert(active,'New worker must actively control the retained tab');
