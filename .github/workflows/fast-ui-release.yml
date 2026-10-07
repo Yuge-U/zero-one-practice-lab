@@ -8,6 +8,8 @@ on:
       - 'production/series.css'
       - 'production/patch.mjs'
       - 'production/render-practice-icon.py'
+      - 'production/verify-entry.cjs'
+      - 'production/brand-entry.js'
   workflow_dispatch:
 permissions:
   contents: read
