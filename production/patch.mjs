@@ -39,6 +39,7 @@ function loadDraft(detail,copy){const payload=detail.operation.body.payload;cons
 `; // 純粋なコピーと表示機能を追加します。
 await writeFile(join(web, 'app.mjs'), app); // 確認した画面制御を書き出します。
 let html = await readFile(join(web, 'index.html'), 'utf8'); // 公開画面の構造を更新します。
+// Normal links use the current display identity; authentication and saved-data paths stay unchanged.
 html = html.replace('<head>', '<head><script src="./brand-entry.js?v=20261007h"></script>');
 html = html.replace('<body>', '<body><div class="zeroone-splash" aria-hidden="true"><img src="./icons/icon-512.webp?v=20261007d" alt=""><strong>ZERO ONE</strong><span>PRACTICE</span></div>'); // ZERO ONEシリーズ共通の起動画面を追加します。
 html = html.replaceAll('0.3.2', '1.0.0').replace('ZERO ONE PRACTICE · 検証版1.0.0', 'ZERO ONE PRACTICE').replace('BROWSER LAB / 1.0.0', 'PLAN · PRACTICE · REFLECT / 1.0.0').replace('検証版・本番とは別保存', '端末保存 · AIなしでも利用可').replace('ZERO ONE PRACTICE · Browser Lab 1.0.0', 'ZERO ONE PRACTICE · 1.0.0'); // 本番の機能範囲とバージョンを表示します。
