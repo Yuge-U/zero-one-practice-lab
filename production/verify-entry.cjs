@@ -12,9 +12,10 @@ const simpleNew=`<!doctype html><html><head>${newHead}</head><body><h1 id="new">
 const oldHtml=`<!doctype html><html><head><link rel="icon" href="brand-logo.svg"></head><body><input id="draft" value="unsaved"><script>localStorage.setItem('brand-test-marker','preserve');${practice?"navigator.serviceWorker.register('./sw.js');":''}</script></body></html>`;
 (async()=>{
  for(const engine of (process.env.BROWSER_ENGINE === "chromium" ? [chromium] : [chromium,webkit])){
-  let upgraded=false;
+  let upgraded=false,originOnline=true;
   const requests=[];
   const server=http.createServer((req,res)=>{
+   if(!originOnline){req.socket.destroy();return;}
    const url=new URL(req.url,'http://localhost');requests.push(url.pathname+url.search);
    let relative=url.pathname.slice(app.length+2);
    if(!url.pathname.startsWith('/'+app+'/')){res.writeHead(404).end();return;}
@@ -48,7 +49,7 @@ const oldHtml=`<!doctype html><html><head><link rel="icon" href="brand-logo.svg"
    const icon=await fresh.locator('link[rel="icon"]').getAttribute('href');assert(icon.includes('20261007g.png'));
    await fresh.goto(base+'index.html?existing=keep&brand=old#section');await fresh.waitForURL(u=>u.searchParams.get('brand')==='20261007h');const final=new URL(fresh.url());assert.equal(final.searchParams.get('existing'),'keep');assert.equal(final.hash,'#section');assert.equal(new URL('./',final).href,base,'Authentication redirect must remain stable');
    const count=requests.length;await fresh.reload();await fresh.locator('#new').waitFor();assert(requests.length-count<20,'No redirect loop');
-   if(practice){await context.setOffline(true);await fresh.reload();await fresh.locator('#new').waitFor();await context.setOffline(false);}
+   if(practice){originOnline=false;await fresh.reload();await fresh.locator('#new').waitFor();originOnline=true;}
    console.log('PASS',engine.name(),app,'normal URL, retained tab/draft, localStorage, IndexedDB, auth URL, parameters, offline shell');
    await context.close();
   }finally{await browser.close();await new Promise(r=>server.close(r));}

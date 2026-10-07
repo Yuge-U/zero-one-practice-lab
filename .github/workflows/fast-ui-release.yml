@@ -54,6 +54,7 @@ jobs:
           PLAYWRIGHT_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules/playwright
         run: |
           cd upstream/practice-ui-lab/app
+          npm install --no-save --ignore-scripts playwright@1.63.0
           npx playwright install --with-deps chromium webkit
           cd ../../..
           node production/verify-entry.cjs
