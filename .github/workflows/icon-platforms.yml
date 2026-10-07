@@ -1,0 +1,16 @@
+name: Four-app icon compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/icon-platforms.yml']
+  workflow_run:
+    workflows: ['pages build and deployment', 'ZERO ONE PRACTICE production release', 'ZERO ONE PRACTICE fast UI release']
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    uses: Yuge-U/zero-one-terminology/.github/workflows/icon-platforms.yml@main
