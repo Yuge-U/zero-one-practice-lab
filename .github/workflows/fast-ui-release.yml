@@ -49,6 +49,14 @@ jobs:
           test -s _site/icons/icon-512.webp
           grep -q "ZERO ONE" _site/index.html
           grep -q "PRACTICE" _site/index.html
+      - name: Verify retained-tab branding update before publication
+        env:
+          PLAYWRIGHT_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules/playwright
+        run: |
+          cd upstream/practice-ui-lab/app
+          npx playwright install --with-deps chromium webkit
+          cd ../../..
+          node production/verify-entry.cjs
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site

@@ -16,6 +16,7 @@ const config = {"url": "https://yuge-u.github.io/zero-one-practice-lab/", "files
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await page.waitForURL(url => url.searchParams.get('brand') === '20261007h');
     assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), './safari-practice-192-20261007g.png');
     assert.equal(await page.locator('link[rel="icon"]').getAttribute('type'), 'image/png');
     assert.deepEqual(await page.evaluate(async()=>{const result=[];for(const rel of ['icon','apple-touch-icon']){const img=new Image();img.src=document.querySelector(`link[rel="${rel}"]`).href;await img.decode();result.push([img.naturalWidth,img.naturalHeight]);}return result;}),[[192,192],[180,180]]);
