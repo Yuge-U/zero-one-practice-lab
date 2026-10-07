@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto'; // 公開バイトを照合します。
 import {execFileSync} from 'node:child_process'; // 既存の検証済みビルドを呼び出します。
 import assert from 'node:assert/strict'; // 不一致があれば公開を止めます。
 import {assertApplePng} from './icon-contract.mjs'; // 画像の構造検査をブラウザ検査と共有します。
-execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
+execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs','production/tests/brand-shell-update.test.mjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
 const app=resolve('upstream/practice-ui-lab/app'); // 既存アプリとは別の作業コピーです。
 const base=JSON.parse(await readFile('reports/release-build.json','utf8'));assert.equal(base.release,'0.3.2'); // 旧版の照合を必須とします。
 await cp(join(app,'web'),join(app,'baseline-web'),{recursive:true}); // 既存の更新検証と旧通信コード再現の基準を残します。
