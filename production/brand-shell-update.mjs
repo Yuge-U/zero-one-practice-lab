@@ -21,5 +21,5 @@ export function updateBrandShell(source) {
     .replace(activate,"self.addEventListener('activate',event=>{event.waitUntil(caches.open(CACHE).then(async cache=>{if(await cache.match(BRAND_TAKEOVER))await self.clients.claim();}));});")
     .replace(fetchStart,"self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request,{cache:'no-store'}).catch(async()=>{const cached=await(await caches.open(CACHE)).match(new URL('./index.html',self.registration.scope).href);if(cached)return cached;throw new Error('Offline app shell unavailable');}));return;}if(!urls.has(event.request.url))return;")
     .replace("version:'1.3.4'", "version:'1.3.4',brandRevision:'20261007m'")
-    .replace("const FILES=['./'", "const FILES=['./apple-touch-zero-one-180-20261007m.png','./apple-touch-practice-180-20261007k.png','./apple-touch-icon.png','./apple-touch-icon-precomposed.png','./brand-entry.js?v=20261007k','./safari-practice-180-20261007g.png','./safari-practice-192-20261007g.png','./'");
+    .replace("const FILES=['./'", "const FILES=['./apple-touch-zero-one-180-20261007m.png','./apple-touch-icon.png','./apple-touch-icon-precomposed.png','./brand-entry.js?v=20261007k','./safari-practice-180-20261007g.png','./safari-practice-192-20261007g.png','./'");
 }
