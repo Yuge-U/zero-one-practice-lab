@@ -3,7 +3,7 @@
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "THIRD_PARTY_NOTICES.md": "031645a0c7b5baeb129cbb4ed544917004ac2de0f2a752baef417e9d0404fa42",
-    "app.mjs": "390f56993ee19eced1ed929fc2e875eba82f64ee02e8ba1c75618c62071805ac",
+    "app.mjs": "b2ebbb6aae237c18119c10159a034d37f363ac9775699c4354216184763f7efc",
     "auth.mjs": "75164083f347f60157cae27549af6c81e666e4228328487553a8e3dec588f711",
     "catalog.mjs": "02322194e18daf8c0fa6a5cd30165557031cbe521269df9fc11caa3b0cda9280",
     "config.mjs": "581817ae21671caf174c956caa7262bcc61fa35edf922edab1c7a420aad89f00",
@@ -23,7 +23,7 @@
     "icons/apple-touch-icon.png": "c94bcdd5c3f4a3401e994f46cc828f31c898fdf79875d08c69b6a9b7821a5f96",
     "icons/icon-192.webp": "3ba291687198acfd29e1eb4c0fc74bf3ac36eb373fdc3b06d25567188454e907",
     "icons/icon-512.webp": "8c4a162ca9b370230a20d49239406ee6e7ecec8a9d485cd7e3d2c743d9f91b7c",
-    "index.html": "33615efd137cc8ed9c622b10f988ac1ce3fba5f26c6cfdf1280d558794a9e16a",
+    "index.html": "a9990044f5bd4edb8c488f7c961a785f93ba701250fc63e7567bd32aa039c3e2",
     "manifest.webmanifest": "93b24d41fd6f61804d6f41f7873df9d6cc7eea7e3966a53136710050577dc4d2",
     "media-cloud.mjs": "60caf36f8fe46dea0b5ce2561b2a8e7aba49f2209e6af53c39a94f0c63265866",
     "media-import-policy.mjs": "5fb3b5e9e8ad9633e0c4ac9bbd8d52fa5cc600a04b4454d45c63e50789f895f2",
@@ -36,7 +36,7 @@
     "save-status.mjs": "1ebf40a2fd22142b3a15e5f8eab8b80e559667bbd0d8498d61853a02fa80d191",
     "series.css": "80a7d3819bc9b1941da55e1a81ed68ec590e95a51af969f65ac9a71fa38ddb5b",
     "style.css": "f3deb1eea35f25cff70ef1ab5eaaec47b5ec0f9f097f1a026166f3e6a46f01b8",
-    "sw.js": "37cde2ff817b5ae66b77a8804b920275b8a130e87a4584c907c22373e2ec051c",
+    "sw.js": "308757a94b4642905e027ed57662c884190a3c3a7b75aa2774fb3d84ca191c62",
     "ui.mjs": "547ac40a8e176a407f7823aa80af9a6d758ded75908421e0729b296781941605",
     "vendor/MSAL-LICENSE.txt": "c544adf8f0d43453d9fdf6c11da19605d12d89806a7870653169b8cc97f5bb53",
     "vendor/msal-browser.min.js": "074de35a99c1e7fa51d6e235cdaf688d4a24af91f43aef9c54532afcbba62ef2",
@@ -50,6 +50,9 @@
     "canvas-compat.mjs": "8d3ad2b3fbdb74b3dcf61be31704ee7200ae0275b5e3265b73726b5543c46b8b",
     "canvas-playback.mjs": "d94e44bedf8608f580ad7ede749cb4db41ef02f512d40a745610a1074c35f76f",
     "canvas-viewer.mjs": "9bc0ee53c384dbd18ab5bfeb8d54480e1f23b9410878efdd8f5631de457f07a4",
-    "canvas-viewer.css": "058c9c1e1a40d3b8de5a28f0e2ac22e6f5f68ef9c9623c9ae1897edac1e644f9"
+    "canvas-viewer.css": "058c9c1e1a40d3b8de5a28f0e2ac22e6f5f68ef9c9623c9ae1897edac1e644f9",
+    "zero-one-update.js": "cc8dd9092d096d31d25eb0ee9ac6858bc2625c6d1b9574f0d65c332f9dc8db2e",
+    "zero-one-update.css": "56caba661c2b1da58ab01628bdcc307179730e320422f5763c340ec463bc663e",
+    "app-version.json": "3b301d5792c89567895412b742b431cbd0d3bf9a55b949381650c176c4be0ac2"
   }
 }

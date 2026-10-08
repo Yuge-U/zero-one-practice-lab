@@ -3,6 +3,9 @@ on: # 本番以外のブランチでは検証のみ行います。
   push: # コードと検査の変更を検証します。
     branches: [main, brand/reference-quality-20261007, brand/practice-approved-20261007, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience, fix/sync-latency-recovery, fix/series-login-20261007] # 検証ブランチから本番配信しません。
     paths: ['production/**', '!production/practice-icon.svg', '!production/icons/**', '!production/series.css', '!production/patch.mjs', '!production/render-practice-icon.py', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明のみの更新で再配信しません。
+  pull_request:
+    branches: [main]
+    paths: ['production/**', 'tools/**', 'release-lock.json', '.github/workflows/deploy-pages.yml']
   workflow_dispatch: # 本人による再実行を許可します。
 permissions: # 通常の処理を読取専用にします。
   contents: read # 個人のMicrosoft情報は扱いません。
@@ -49,6 +52,11 @@ jobs: # 検証・配信・公開後確認を分離します。
         env:
           NODE_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules
         run: node production/tests/connection-hub.browser.cjs
+      - name: Verify safe update boundaries
+        env:
+          UPDATE_ROOT: ${{ github.workspace }}/upstream/practice-ui-lab/app/web
+          UPDATE_BUILDER: ${{ github.workspace }}/production/safe-update/build-update-release.mjs
+        run: node --test production/safe-update/safe-update.test.cjs
       - name: Verify normal entry and retained-tab shell update
         env:
           PLAYWRIGHT_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules/playwright
