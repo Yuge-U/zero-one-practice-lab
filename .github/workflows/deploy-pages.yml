@@ -56,7 +56,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 元の検証に添付検査を加えます。
         working-directory: upstream/practice-ui-lab/app # 本体と同じコードを使います。
         run: | # 一つでも失敗すれば公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
           node tools/network-browser.mjs # 元の通信境界を検査します。
           node tools/save-status-browser.mjs # 同期と未保存の表示を確認します。
           node tools/sync-latency-browser.mjs # 同期遅延・通信期限切れ・復帰中の端末保存を両エンジンで確認します。
