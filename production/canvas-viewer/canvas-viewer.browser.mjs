@@ -1,11 +1,12 @@
 import {chromium,webkit} from 'playwright';
 import {createServer} from './serve-project.mjs';
 import {canvasFixture,rawFixture} from './canvas-fixtures.mjs';
-import {mkdir,writeFile,mkdtemp} from 'node:fs/promises';
+import {mkdir,writeFile,mkdtemp,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
 
+const nativeRaw=await readFile(new URL('./canvas.native-export.json',import.meta.url),'utf8');
 const live=process.env.SITE_URL,reports=live?'reports/canvas-viewer-live':'reports/canvas-viewer';
 await mkdir(reports,{recursive:true});
 let server,url=live;const results=[],errors=[];
@@ -67,5 +68,14 @@ try{for(const [engine,type] of Object.entries({chromium,webkit})){
     await check(engine,'P19 多数STEP・長い経路でも1つの描画ループで再生',async()=>{const state=await inspect(page);assert(state.draws-start>=3);assert(state.draws-start<90);assert.equal(state.scheduled,false);});
     await page.keyboard.press('Escape');await page.locator('#canvasViewer').waitFor({state:'hidden'});
     await check(engine,'P20 Escapeで閉じても再生を残さない',async()=>{assert.equal((await inspect(page)).scheduled,false);});
+    await page.locator('[data-tab="editor"]').click();await page.locator('#title').fill('CANVAS native export practice');await page.locator('#goal').fill('パスを確認');await page.locator('[data-field="name"]').first().fill('パス');
+    await check(engine,'P21 CANVAS importとCANVAS 再生の表示に統一',async()=>{assert.equal(await page.locator('[data-canvas]').first().textContent(),'CANVAS import');await page.locator('[data-canvas]').first().click();assert.equal(await page.locator('#canvasDialog h2').textContent(),'CANVAS import');await page.locator('#canvasFile').setInputFiles({name:'canvas-native-export.json',mimeType:'application/json',buffer:Buffer.from(nativeRaw)});await page.waitForFunction(()=>document.getElementById('items').textContent.includes('CANVAS native export test'));assert.equal(await page.locator('#items [data-view-canvas]').first().textContent(),'CANVAS 再生');});
+    await page.locator('#items [data-view-canvas]').first().click();await page.locator('#cvNext').click();await wait(page,{running:false,completed:1});
+    await check(engine,'P22 実CANVAS書出しのnull選手パスを再生',async()=>{const state=await inspect(page);assert.deepEqual(state.positions.balls.ball,{x:500,y:400});assert.deepEqual(state.positions.players.o1,{x:525,y:764.4});assert.equal(faults.length,0);});
+    await page.locator('#cvClose').click();await page.locator('#savePlan').click();await page.waitForFunction(()=>document.getElementById('saveFeedback').textContent.includes('練習を保存しました'));
+    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.getElementById('editorFields')&&!document.getElementById('editorFields').disabled);await page.locator('[data-tab="library"]').click();await page.locator('.saved-card').filter({hasText:'CANVAS native export practice'}).locator('[data-open]').click();await page.waitForFunction(()=>document.getElementById('detailTitle').textContent==='CANVAS native export practice');await page.locator('#detailItems [data-view-canvas]').click();await page.locator('#cvPlay').click();await wait(page,{running:false,completed:1});
+    await check(engine,'P23 保存・再起動後も元のCANVAS版を連続再生',async()=>{assert.deepEqual((await inspect(page)).positions.balls.ball,{x:500,y:400});assert.equal(await page.locator('#detailItems [data-export-canvas]').textContent(),'CANVAS JSONを書出し');});
+    await page.screenshot({path:reports+'/'+engine+'-native-export.png'});
+
   }catch(error){errors.push({engine,message:error.message,faults,state:await inspect(page).catch(()=>null),notice:await page.locator('#notice').textContent().catch(()=>null)});await page.screenshot({path:reports+'/'+engine+'-failure.png'}).catch(()=>{});}finally{await context.close();}
-}}finally{if(server){server.closeAllConnections();await new Promise(done=>server.close(done));}const passed=results.length===44&&errors.length===0;await writeFile(reports+'/results.json',JSON.stringify({results,errors,passed,realMicrosoft:false,physicalIPhone:false},null,2));if(!passed)process.exitCode=1;}
+}}finally{if(server){server.closeAllConnections();await new Promise(done=>server.close(done));}const passed=results.length===50&&errors.length===0;await writeFile(reports+'/results.json',JSON.stringify({results,errors,passed,realMicrosoft:false,physicalIPhone:false},null,2));if(!passed)process.exitCode=1;}

@@ -7,10 +7,10 @@ const pause=()=>{player?.pause();cancel();update();};
 
 function build(){
   dialog=document.createElement('dialog');dialog.id='canvasViewer';dialog.className='canvas-viewer';
-  dialog.innerHTML=`<div class="cv-heading"><h2 id="cvTitle">作戦を見る</h2><button type="button" id="cvClose" aria-label="作戦ビューアーを閉じる">×</button></div>
-    <div class="cv-court"><canvas id="cvCanvas" role="img" aria-label="作戦の選手・ボールの動き"></canvas></div>
+  dialog.innerHTML=`<div class="cv-heading"><h2 id="cvTitle">CANVAS 再生</h2><button type="button" id="cvClose" aria-label="CANVASビューアーを閉じる">×</button></div>
+    <div class="cv-court"><canvas id="cvCanvas" role="img" aria-label="CANVASの選手・ボールの動き"></canvas></div>
     <div class="cv-status"><span id="cvStatus" aria-live="polite"></span><select id="cvStep" aria-label="STEPを選ぶ"></select></div>
-    <div class="cv-controls" role="group" aria-label="作戦の再生">
+    <div class="cv-controls" role="group" aria-label="CANVASの再生">
       <button type="button" id="cvReset" aria-label="最初に戻る" title="最初に戻る">↺</button>
       <button type="button" id="cvPrevious" aria-label="前の動作・STEPへ" title="前の動作・STEPへ">⏮</button>
       <button type="button" id="cvPlay" class="primary" aria-label="連続再生" title="連続再生">▶</button>
@@ -84,7 +84,7 @@ export function showCanvas(raw){
   if(!dialog)build();if(dialog.open){pause();observer?.disconnect();}else opener=document.activeElement;
   player=next;statusKey='';backgroundKey='';
   const size=player.compat.dimensions();dialog.style.setProperty('--cv-court-ratio',String(size.height/size.width));
-  get('cvTitle').textContent=String(player.compat.snapshot.playName||'作戦を見る');
+  get('cvTitle').textContent=String(player.compat.snapshot.playName||'CANVAS 再生');
   get('cvStep').replaceChildren(...player.steps.map((step,index)=>{const option=document.createElement('option');option.value=String(index);option.textContent=step.label||'STEP '+(index+1);return option;}));
   get('cvSpeed').value='1';get('cvLoop').setAttribute('aria-pressed','false');get('cvLines').checked=player.compat.snapshot.showMovementLines;
   get('cvMedia').textContent=player.mediaCount?'CANVAS内の画像・動画素材は元のCANVASで確認できます。選手・ボール・動作線を表示しています。':'';

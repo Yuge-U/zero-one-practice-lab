@@ -1,7 +1,7 @@
 // Synthetic CANVAS v18 export; no personal data, files or Microsoft credentials.
 export function canvasFixture(rotation=0){
   const p=(x,y)=>({x,y});
-  const line=(id,type,start,end,extra={})=>({id,type,start,end,color:'black',...extra});
+  const line=(id,type,start,end,extra={})=>({id,type,start,end,color:'black',playerId:null,ballId:null,...extra});
   const steps=[{
     id:'step-one',label:'STEP 1',note:'侵入してパス。別ボールは同時に動く。',
     players:[{id:'o1',side:'offense',label:'1',...p(330,690)},{id:'o2',side:'offense',label:'2',...p(710,690)},{id:'d1',side:'defense',label:'1',...p(510,440)}],
