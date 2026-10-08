@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto'; // 公開バイトを照合します。
 import {execFileSync} from 'node:child_process'; // 既存の検証済みビルドを呼び出します。
 import assert from 'node:assert/strict'; // 不一致があれば公開を止めます。
 import {assertApplePng} from './icon-contract.mjs'; // 画像の構造検査をブラウザ検査と共有します。
-execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs','production/tests/brand-shell-update.test.mjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
+execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs','production/tests/brand-shell-update.test.mjs','production/tests/series-connection.test.cjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
 const app=resolve('upstream/practice-ui-lab/app'); // 既存アプリとは別の作業コピーです。
 const base=JSON.parse(await readFile('reports/release-build.json','utf8'));assert.equal(base.release,'0.3.2'); // 旧版の照合を必須とします。
 await cp(join(app,'web'),join(app,'baseline-web'),{recursive:true}); // 既存の更新検証と旧通信コード再現の基準を残します。
@@ -43,8 +43,9 @@ execFileSync(process.execPath,['production/sync-latency-update.mjs',app],{stdio:
 await copyFile('production/sync-latency.test.mjs',join(app,'tests/sync-latency.test.mjs')); // 遅延と結果不明の回帰を必須にします。
 await copyFile('production/sync-latency-browser.mjs',join(app,'tools/sync-latency-browser.mjs')); // 両エンジンで遅延中の保存と復帰を検証します。
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
+execFileSync(process.execPath,['production/series-connection-update.mjs',app],{stdio:'inherit'}); // 4アプリ共通の接続操作と状態表示を適用します。
 // Refresh the app-shell cache for the artwork release without changing data/version contracts.
-const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,updateBrandShell(sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-brand-20261007m'")));
+const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,updateBrandShell(sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-connection-20261008'")));
 const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
