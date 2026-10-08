@@ -5,7 +5,7 @@ export function syncView(state, {connected=false, busy=false, online=true, accou
   const date=new Date(state.lastCheckedAt||NaN);const checked=Number.isFinite(date.getTime());const time=checked?date.toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):''; // 日付付きで最後に確認した時刻を示します。
   if(state.blocked)return view('⚠ データの確認が必要です','error','記録を保護するため保存・同期を停止しています。詳細は上の案内を確認してください。'); // 保護停止を成功表示より優先します。
   if(practices.some(p=>p.heads.length>1))return view('⚠ 練習の変更が重複しています','warning','「保存した練習」で採用する内容を確認してください。'); // 競合時は自動解決済みと表示しません。
-  if(!connected)return view(account?'OneDrive未接続':'この端末のみで利用中','local',account?'「接続・バックアップ」からOneDriveに接続してください。':'練習はこのブラウザ内に保存します。他の端末には反映されません。','OneDrive未接続'); // ゲストの記録が自動移行されるとは案内しません。
+  if(!connected)return view(account?'OneDrive未接続':'この端末のみで利用中','local',account?'上部の雲アイコンからOneDriveに接続してください。':'練習はこのブラウザ内に保存します。他の端末には反映されません。','OneDrive未接続'); // ゲストの記録が自動移行されるとは案内しません。
   if(busy)return view('↻ OneDriveと同期中…','busy','保存済みの練習・記録を送受信しています。','同期中…'); // 通信の開始から完了まで処理中を表示します。
   if(!online)return view(pending?'オフライン・同期待ち':'オフライン・同期未確認','warning',(pending?'この端末には保存済み。通信が戻ると自動同期します。':'今はOneDriveを確認できません。')+(checked?' 前回の同期 '+time:''),'通信の復帰待ち'); // ネットワーク接続だけで同期成功とは判定しません。
   if(state.lastError)return view('⚠ OneDriveの同期が未完了です','error','保存済みの記録はこの端末に残っています。「同期を再試行」を押してください。','同期を再試行'); // 通信エラーを端末の保存失敗と混同しません。
@@ -18,7 +18,7 @@ export function syncView(state, {connected=false, busy=false, online=true, accou
 export function saveHint({connected=false,online=true,pending=0,busy=false,error=false,saved=false}={}) { // 保存ボタンの意味を接続状態に合わせます。
   if(!connected)return 'このブラウザ内に保存します。他の端末にはまだ反映されません。'; // サインインだけで同期すると誤解させません。
   if(!online)return 'オフラインでも保存できます。通信が戻るとOneDriveへ自動同期します。'; // オフラインでの保存を許可した既存動作を説明します。
-  if(error)return '保存済みの記録はこの端末にあります。上の「同期を再試行」でOneDriveへ反映します。'; // 保存を連打させず再同期へ案内します。
+  if(error)return '保存済みの記録はこの端末にあります。雲アイコンのメニューにある「同期を再試行」でOneDriveへ反映します。'; // 保存を連打させず再同期へ案内します。
   if(busy)return 'この端末の保存済みデータをOneDriveに反映しています。'; // 同期と入力確定を区別します。
   if(saved&&pending)return 'この端末への保存は完了しました。OneDriveへ自動同期します。'; // 端末保存の完了を先に伝えます。
   if(saved)return 'この練習は保存済みです。変更したら、もう一度「練習を保存」を押してください。'; // 同期結果は上の状態カードで別途確認します。

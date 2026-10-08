@@ -3,7 +3,7 @@
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "THIRD_PARTY_NOTICES.md": "031645a0c7b5baeb129cbb4ed544917004ac2de0f2a752baef417e9d0404fa42",
-    "app.mjs": "55a329415d3774a5226dd739a837c3cfbad4c3b10183e34a9808747a80d836a0",
+    "app.mjs": "4476ebb3bd856426acb40007d340610af476e1732bc81cb35cbd4c9d6e652288",
     "auth.mjs": "75164083f347f60157cae27549af6c81e666e4228328487553a8e3dec588f711",
     "catalog.mjs": "02322194e18daf8c0fa6a5cd30165557031cbe521269df9fc11caa3b0cda9280",
     "config.mjs": "581817ae21671caf174c956caa7262bcc61fa35edf922edab1c7a420aad89f00",
@@ -33,10 +33,10 @@
     "menu-structures.mjs": "da90789c9c5b997b3948bfd51652b8d3d76503072bc8533a22d3068a4ae64e41",
     "picker.mjs": "e6376f31864f4fb562b802fb61380db8427a9653b7432b0f5c54c07e7ecb25fb",
     "reference-links.mjs": "3236fcfe65d3dcf3dd1bbf86ee1b2802f036155364a269e0ebbeda06539d3110",
-    "save-status.mjs": "6ac7272f344531015700b3757bc7ed7fa39b0e211ec377782c2e38ce554cf223",
+    "save-status.mjs": "1ebf40a2fd22142b3a15e5f8eab8b80e559667bbd0d8498d61853a02fa80d191",
     "series.css": "80a7d3819bc9b1941da55e1a81ed68ec590e95a51af969f65ac9a71fa38ddb5b",
     "style.css": "f3deb1eea35f25cff70ef1ab5eaaec47b5ec0f9f097f1a026166f3e6a46f01b8",
-    "sw.js": "bafaa9f1c140ee9afb95c9061f03907e3fd84a344f3a5e51f884f81c504c8259",
+    "sw.js": "f36ef60f1d705b33cf498e3363cbb825e7f7c7a4b477aacb52753cfc98eb3bd6",
     "ui.mjs": "547ac40a8e176a407f7823aa80af9a6d758ded75908421e0729b296781941605",
     "vendor/MSAL-LICENSE.txt": "c544adf8f0d43453d9fdf6c11da19605d12d89806a7870653169b8cc97f5bb53",
     "vendor/msal-browser.min.js": "074de35a99c1e7fa51d6e235cdaf688d4a24af91f43aef9c54532afcbba62ef2",
@@ -45,7 +45,7 @@
     "vendor/vendor-lock.json": "ac7a136f35fda9c4c664c3966ddb105941dd0662a1bc77505670ecfacdd7f3fe",
     "worker-bridge.mjs": "2179e252d25a8d9fc7692972ad4fa9178ce941493fc627ec06f10ec110a1606f",
     "worker.js": "9a914cfb266228a9811fbb90e0f9ca432767ac3827a00d897c17b2f55df90558",
-    "zero-one-connection.js": "c4bf75fd8d889af36d6fcc5adc8e483dd2392a3fff27d5176a099db3c41cc00b",
-    "zero-one-connection.css": "e79215e0ce33b6ca863dcc4f7dc30635e37256c3414e8980bba831103d2a60fe"
+    "zero-one-connection.js": "75fd15f47ddd54abbceb21ae95ccff7dc139c8245d761d3d1f7be83f8594957c",
+    "zero-one-connection.css": "5ca96de52e054fa5ac95c67fa9bd5629cfa592a2b6d489fe6b1aaa1d94066c66"
   }
 }
