@@ -45,6 +45,10 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 検証ツールを固定します。
           npm install --no-save --ignore-scripts playwright@1.63.0 # 既存と同じ版を使います。
           npx playwright install --with-deps chromium webkit # WebKitも必須にします。
+      - name: Verify common connection menu
+        env:
+          NODE_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules
+        run: node production/tests/connection-hub.browser.cjs
       - name: Verify normal entry and retained-tab shell update
         env:
           PLAYWRIGHT_PATH: ${{ github.workspace }}/upstream/practice-ui-lab/app/node_modules/playwright
