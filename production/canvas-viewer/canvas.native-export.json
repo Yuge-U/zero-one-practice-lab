@@ -1,0 +1,114 @@
+{
+  "format": "basketball-tactics-board",
+  "exportVersion": 1,
+  "exportedAt": "2026-10-08T00:00:00.000Z",
+  "snapshot": {
+    "schemaVersion": 18,
+    "playName": "CANVAS native export test",
+    "libraryMeta": {
+      "folder": "Shared",
+      "tags": [],
+      "favorite": false
+    },
+    "courtMode": "half",
+    "courtRotation": 0,
+    "activeLineColor": "black",
+    "activeTextFont": "gothic",
+    "activeTextOutline": true,
+    "playerSize": "medium",
+    "ballSize": "medium",
+    "movementSpeed": 1,
+    "playbackSpeed": 1,
+    "showMovementLines": true,
+    "activeStepId": "step-1791485107116-61754c4f58b4f8",
+    "steps": [
+      {
+        "id": "step-1791485107116-61754c4f58b4f8",
+        "label": "STEP 1",
+        "note": "",
+        "players": [
+          {
+            "id": "o1",
+            "side": "offense",
+            "label": "1",
+            "x": 525,
+            "y": 764.4
+          },
+          {
+            "id": "o2",
+            "side": "offense",
+            "label": "2",
+            "x": 252,
+            "y": 637
+          },
+          {
+            "id": "o3",
+            "side": "offense",
+            "label": "3",
+            "x": 798,
+            "y": 637
+          },
+          {
+            "id": "o4",
+            "side": "offense",
+            "label": "4",
+            "x": 367.5,
+            "y": 352.8
+          },
+          {
+            "id": "o5",
+            "side": "offense",
+            "label": "5",
+            "x": 682.5,
+            "y": 352.8
+          }
+        ],
+        "ball": {
+          "id": "ball",
+          "label": "1",
+          "x": 567,
+          "y": 764.4
+        },
+        "balls": [
+          {
+            "id": "ball",
+            "label": "1",
+            "x": 567,
+            "y": 764.4
+          }
+        ],
+        "cones": [],
+        "lines": [
+          {
+            "id": "line-1791485107123-59f25828e1dfc8",
+            "type": "pass",
+            "start": {
+              "x": 567,
+              "y": 764.4
+            },
+            "end": {
+              "x": 500,
+              "y": 400
+            },
+            "points": [
+              {
+                "x": 567,
+                "y": 764.4
+              },
+              {
+                "x": 500,
+                "y": 400
+              }
+            ],
+            "playerId": null,
+            "ballId": "ball",
+            "color": "black",
+            "playOrder": 1
+          }
+        ],
+        "texts": [],
+        "media": []
+      }
+    ]
+  }
+}

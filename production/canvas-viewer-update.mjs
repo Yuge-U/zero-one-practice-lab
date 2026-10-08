@@ -10,12 +10,25 @@ runtime=replace(runtime,'<button data-export-canvas="${index}">作戦JSONを書�
 runtime=replace(runtime,'if(b.dataset.exportCanvas!==undefined){','if(b.dataset.viewCanvas!==undefined){const draft=b.dataset.canvasDraft===\'true\',index=Number(b.dataset.viewCanvas);if(draft)gather();const raw=draft?rows[index]?.canvasRaw:currentDetail?.objects.find(object=>object.hash===currentDetail.operation.body.payload.items[index]?.canvasHash)?.body.payload.raw;if(!raw)throw new Error(\'作戦データがありません。同期または取込を確認してください。\');const viewer=await(canvasViewerLoad??=import(\'./canvas-viewer.mjs\'));viewer.showCanvas(raw);}if(b.dataset.exportCanvas!==undefined){');
 runtime+='\nlet canvasViewerLoad;\nfunction canvasViewButton(raw,index,draft=false){if(!raw)return \'\';try{const data=JSON.parse(raw.replace(/^\\uFEFF/,\'\'));if(data.zeroOneNoDiagram||(data.snapshot??data).zeroOneNoDiagram)return \'\';}catch{}return `<button type="button" data-view-canvas="${index}" data-canvas-draft="${draft}">作戦を見る</button>`;}\n';
 runtime=replace(runtime,'アプリ本体は事前取得済み。作戦の画像・動画の再生は対象外です。','アプリ本体と作戦再生は事前取得済み。写真・動画の未取得本体は対象外です。');
+// Change presentation strings only; original CANVAS JSON and stored names stay intact.
+for(const [before,after] of [
+  ['作戦を選ぶ','CANVAS import'],['作戦を見る','CANVAS 再生'],['作戦JSON','CANVAS JSON'],
+  ['作戦データ','CANVASデータ'],['作戦の固定版','CANVASの固定版'],['作戦再生','CANVAS再生'],
+  ['条件・作戦・参考資料','条件・CANVASデータ・参考資料'],
+  ["作戦：${e(r.canvasName||'図なし')}","CANVAS：${e(r.canvasName&&r.canvasName!=='図なし'?r.canvasName:'未インポート')}"]
+])runtime=runtime.replaceAll(before,after);
 await writeFile(join(web,'app.mjs'),runtime);
 let html=await readFile(join(web,'index.html'),'utf8');
 html=replace(html,'</head>','<link rel="stylesheet" href="./canvas-viewer.css">\n</head>');
 html=replace(html,'描画・再生は元のCANVASで行ってください。','取り込んだ作戦は「作戦を見る」で連続再生・コマ送りできます。編集はCANVASで行ってください。');
+for(const [before,after] of [
+  ['作戦を選ぶ','CANVAS import'],['作戦を見る','CANVAS 再生'],['作戦JSON','CANVAS JSON'],
+  ['取り込んだ作戦','取り込んだCANVASデータ'],['作戦図・参考資料','CANVAS import・参考資料'],
+  ['既存の作戦・用語データ','既存のCANVAS・用語データ'],['OneDriveの既存作戦を読取','OneDriveのCANVASデータを読取']
+])html=html.replaceAll(before,after);
 await writeFile(join(web,'index.html'),html);
 let sw=await readFile(join(web,'sw.js'),'utf8');sw=replace(sw,"'./app.mjs'","'./canvas-compat.mjs','./canvas-playback.mjs','./canvas-viewer.mjs','./canvas-viewer.css','./app.mjs'");await writeFile(join(web,'sw.js'),sw);
 await copyFile('production/canvas-viewer/canvas-viewer.test.mjs',join(app,'tests/canvas-viewer.test.mjs'));
 await copyFile('production/canvas-viewer/canvas-viewer.browser.mjs',join(app,'tools/canvas-viewer.browser.mjs'));
 await copyFile('production/canvas-viewer/canvas-fixtures.mjs',join(app,'tools/canvas-fixtures.mjs'));
+await copyFile('production/canvas-viewer/canvas.native-export.json',join(app,'tools/canvas.native-export.json'));
