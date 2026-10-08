@@ -56,7 +56,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 元の検証に添付検査を加えます。
         working-directory: upstream/practice-ui-lab/app # 本体と同じコードを使います。
         run: | # 一つでも失敗すれば公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs tests/canvas-viewer.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
           node tools/network-browser.mjs # 元の通信境界を検査します。
           node tools/save-status-browser.mjs # 同期と未保存の表示を確認します。
           node tools/sync-latency-browser.mjs # 同期遅延・通信期限切れ・復帰中の端末保存を両エンジンで確認します。
@@ -71,6 +71,9 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 参照先への無断アクセスも検査します。
           node tools/catalog-browser.mjs # 検索・再利用・認証復帰を確認します。
           node tools/reference-browser.mjs # リンク追加・保存・独立プロファイル受信を確認します。
+      - name: Check lightweight CANVAS playback
+        working-directory: upstream/practice-ui-lab/app
+        run: node tools/canvas-viewer.browser.mjs
       - name: Check OneDrive-only photo and video attachments # 新しい取込・表示・再生を実ブラウザで検証します。
         working-directory: upstream/practice-ui-lab/app # 人物を含まない合成ファイルだけを使います。
         run: node tools/media-browser.mjs # 認証とGraphは合成し、実際の保存・PNG・MP4を検証します。
@@ -155,6 +158,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           node tools/catalog-browser.mjs # 分類・検索を確認します。
           node tools/reference-browser.mjs # 参照と合成同期を確認します。
           node tools/media-browser.mjs # ファイル取込・PNG表示・MP4再生・合成送受信を確認します。
+          node tools/canvas-viewer.browser.mjs # 公開URLでも固定作戦・コマ送り・通信なし再生を確認します。
       - name: Preserve public-site evidence # 公開後の結果を残します。
         if: always() # 失敗も保存します。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 既存の証拠保存です。
@@ -168,4 +172,5 @@ jobs: # 検証・配信・公開後確認を分離します。
             upstream/practice-ui-lab/app/reports/catalog-live/
             upstream/practice-ui-lab/app/reports/references-live/
             upstream/practice-ui-lab/app/reports/media-live/
+            upstream/practice-ui-lab/app/reports/canvas-viewer-live/
           retention-days: 14 # 保存期間を維持します。
