@@ -1,0 +1,20 @@
+#canvasDialog{width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 32px);box-sizing:border-box;overflow:auto}
+#canvasDialog .section-head{gap:12px}
+#canvasDialog h2{overflow-wrap:anywhere}
+#canvasImportStatus:empty{display:none}
+#canvasImportStatus{font-size:.9rem;overflow-wrap:anywhere}
+.ci-loading{display:flex;align-items:center;gap:10px}
+.ci-loading::before{content:'';flex:none;width:16px;height:16px;border:2px solid #c9ded8;border-top-color:#187d70;border-radius:50%;animation:ci-spin .9s linear infinite}
+@keyframes ci-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ci-loading::before{animation:none}}
+.ci-error{color:#a12a2a}
+#canvasBreadcrumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:12px 0}
+#canvasBreadcrumbs button{padding:6px 10px;min-height:44px;max-width:100%;overflow-wrap:anywhere}
+#canvasBreadcrumbs [aria-current]{font-weight:700}
+#canvasSearch{width:100%;box-sizing:border-box;min-width:0;font-size:16px}
+#canvasSearchInfo{font-size:.85rem}
+#canvasChoices{display:grid;gap:8px;margin-top:12px}
+#canvasChoices .ci-entry{display:flex;align-items:center;gap:10px;text-align:left;width:100%;min-height:56px;padding:12px;box-sizing:border-box}
+.ci-icon{flex:none;font-size:1.2rem}
+.ci-label{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.ci-label small{opacity:.75;font-size:.8rem}
