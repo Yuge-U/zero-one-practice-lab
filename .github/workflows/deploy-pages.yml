@@ -1,5 +1,8 @@
 name: ZERO ONE PRACTICE production release # 承認済みブランド反映を全検証して本番公開します。
 on: # 本番以外のブランチでは検証のみ行います。
+  pull_request:
+    branches: [main]
+    paths: ['production/**', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml']
   push: # コードと検査の変更を検証します。
     branches: [main, brand/reference-quality-20261007, brand/practice-approved-20261007, release/practice-1-0, fix/onedrive-fetch-101, fix/save-sync-ux-102, fix/plan-menu-labels-103, fix/catalog-connection-110, fix/compact-defaults-111, feat/reference-links-121, feat/media-attachments-130, fix/detail-label-131, fix/onedrive-resilience, fix/sync-latency-recovery, fix/series-login-20261007] # 検証ブランチから本番配信しません。
     paths: ['production/**', '!production/practice-icon.svg', '!production/icons/**', '!production/series.css', '!production/patch.mjs', '!production/render-practice-icon.py', 'release-lock.json', 'THIRD_PARTY_NOTICES.md', 'tools/**', '.github/workflows/deploy-pages.yml'] # 説明のみの更新で再配信しません。
@@ -22,6 +25,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 公開候補を取得します。
         with: # 長期認証を残しません。
           persist-credentials: false # Git認証を保存しません。
+          fetch-depth: 0 # 比較元の版番号を確実に取得します。
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # 固定版の元コードを取得します。
         with: # 元リポジトリは読取専用です。
           repository: Yuge-U/basketball-tactics-board # 元アプリの既存基準です。
@@ -31,6 +35,10 @@ jobs: # 検証・配信・公開後確認を分離します。
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # 既存と同じ実行環境です。
         with: # Nodeを固定します。
           node-version: '22.16.0' # 既存の保存検証と合わせます。
+      - name: Require a new app version for published changes
+        run: |
+          node --test production/tests/version-policy.test.mjs
+          node production/version-policy.mjs
       - name: Verify baseline and prepare production candidate # 全配信物を照合します。
         env: # 必要な期間だけ短期認証を使います。
           GH_TOKEN: ${{ github.token }} # 個人のOneDrive認証ではありません。
@@ -39,7 +47,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           python3 -m venv .image-env # 画像変換の環境を分けます。
           .image-env/bin/python -m pip install --only-binary=:all: pillow==12.3.0 cairosvg==2.8.2 # ZERO ONE PRACTICEアイコンを決定的に生成します。
           node tools/build-release.mjs # 元の全バイトを照合します。
-          node production/prepare.mjs # 許可した1.3.3だけを生成します。
+          node production/prepare.mjs # release.jsonの公開版を生成します。
       - name: Install pinned browsers # 両ブラウザを準備します。
         working-directory: upstream/practice-ui-lab/app # 依存部品を本体に混ぜません。
         run: | # 検証ツールを固定します。
@@ -56,7 +64,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 元の検証に添付検査を加えます。
         working-directory: upstream/practice-ui-lab/app # 本体と同じコードを使います。
         run: | # 一つでも失敗すれば公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs tests/canvas-viewer.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs tests/canvas-viewer.test.mjs tests/canvas-library.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
           node tools/network-browser.mjs # 元の通信境界を検査します。
           node tools/save-status-browser.mjs # 同期と未保存の表示を確認します。
           node tools/sync-latency-browser.mjs # 同期遅延・通信期限切れ・復帰中の端末保存を両エンジンで確認します。
@@ -66,6 +74,7 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 既存の合格条件を維持します。
           node tools/browser-project.mjs # 配信停止・保存・UIを検査します。
           node tools/production-browser.mjs # コピーと更新時の既存データ保持を確認します。
+          node tools/current-version-upgrade.mjs # 1.3.4からの記録・送信待ち保持と1.3.5への切替を確認します。
       - name: Check categories and reference links # 既存の分類と参照も維持します。
         working-directory: upstream/practice-ui-lab/app # 個人の資格情報は使用しません。
         run: | # 参照先への無断アクセスも検査します。
@@ -74,6 +83,9 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check lightweight CANVAS playback
         working-directory: upstream/practice-ui-lab/app
         run: node tools/canvas-viewer.browser.mjs
+      - name: Check CANVAS import loading, folders and search
+        working-directory: upstream/practice-ui-lab/app
+        run: node tools/canvas-import.browser.mjs
       - name: Check OneDrive-only photo and video attachments # 新しい取込・表示・再生を実ブラウザで検証します。
         working-directory: upstream/practice-ui-lab/app # 人物を含まない合成ファイルだけを使います。
         run: node tools/media-browser.mjs # 認証とGraphは合成し、実際の保存・PNG・MP4を検証します。
@@ -159,6 +171,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           node tools/reference-browser.mjs # 参照と合成同期を確認します。
           node tools/media-browser.mjs # ファイル取込・PNG表示・MP4再生・合成送受信を確認します。
           node tools/canvas-viewer.browser.mjs # 公開URLでも固定作戦・コマ送り・通信なし再生を確認します。
+          node tools/canvas-import.browser.mjs # 公開URLでも読込状態・階層・検索・固定版保持を確認します。
       - name: Preserve public-site evidence # 公開後の結果を残します。
         if: always() # 失敗も保存します。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 既存の証拠保存です。
@@ -173,4 +186,5 @@ jobs: # 検証・配信・公開後確認を分離します。
             upstream/practice-ui-lab/app/reports/references-live/
             upstream/practice-ui-lab/app/reports/media-live/
             upstream/practice-ui-lab/app/reports/canvas-viewer-live/
+            upstream/practice-ui-lab/app/reports/canvas-import-live/
           retention-days: 14 # 保存期間を維持します。

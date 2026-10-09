@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: Yuge-U/basketball-tactics-board
@@ -33,6 +34,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22.16.0'
+      - name: Require a new app version for published changes
+        run: |
+          node --test production/tests/version-policy.test.mjs
+          node production/version-policy.mjs
       - name: Build UI release
         env:
           GH_TOKEN: ${{ github.token }}

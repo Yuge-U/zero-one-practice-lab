@@ -6,6 +6,7 @@ const {chromium,webkit}=require(process.env.PLAYWRIGHT_PATH||'playwright');
 const practice=__dirname.endsWith('/production');
 const root=practice?path.resolve('_site'):path.resolve('.');
 const app=practice?'zero-one-practice-lab':'zero-one-terminology';
+const targetVersion=practice?JSON.parse(fs.readFileSync('production/release.json','utf8')).version:null;
 const newHtml=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const newHead=newHtml.match(/<head>([\s\S]*?)<\/head>/)[1];
 const simpleNew=`<!doctype html><html><head>${newHead}</head><body><h1 id="new">updated</h1></body></html>`;
@@ -20,7 +21,7 @@ const oldHtml=`<!doctype html><html><head><link rel="icon" href="brand-logo.svg"
    let relative=url.pathname.slice(app.length+2);
    if(!url.pathname.startsWith('/'+app+'/')){res.writeHead(404).end();return;}
    if(!relative||relative==='index.html'){res.setHeader('Content-Type','text/html');res.setHeader('Cache-Control','no-store');res.end(upgraded?simpleNew:oldHtml);return;}
-   if(practice&&relative==='sw.js'&&!upgraded){res.setHeader('Content-Type','text/javascript');res.setHeader('Cache-Control','no-store');res.end(fs.readFileSync(path.join(__dirname,'tests/fixtures/before-brand-refresh-sw.js')));return;}
+   if(practice&&relative==='sw.js'&&!upgraded){res.setHeader('Content-Type','text/javascript');res.setHeader('Cache-Control','no-store');res.end(fs.readFileSync(path.join(__dirname,'tests/fixtures/before-brand-refresh-sw.js'),'utf8').replaceAll('1.3.4',targetVersion));return;}
    const file=path.resolve(root,relative);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}
    res.setHeader('Content-Type',relative.endsWith('.js')||relative.endsWith('.mjs')?'text/javascript':relative.endsWith('.png')?'image/png':relative.endsWith('.svg')?'image/svg+xml':'application/octet-stream');res.setHeader('Cache-Control','no-store');res.end(fs.readFileSync(file));
   });
