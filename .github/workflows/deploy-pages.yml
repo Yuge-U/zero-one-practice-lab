@@ -64,7 +64,7 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check native network and save status # 元の検証に添付検査を加えます。
         working-directory: upstream/practice-ui-lab/app # 本体と同じコードを使います。
         run: | # 一つでも失敗すれば公開しません。
-          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs tests/canvas-viewer.test.mjs tests/canvas-library.test.mjs tests/menu-review.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
+          node --test tests/production.test.mjs tests/network.test.mjs tests/save-status.test.mjs tests/catalog.test.mjs tests/compact-defaults.test.mjs tests/reference.test.mjs tests/media.test.mjs tests/media-import-policy.test.mjs tests/media-import-ui.test.mjs tests/media-compatibility.test.mjs tests/connection.test.mjs tests/sync-latency.test.mjs tests/sync-minimum.test.mjs tests/canvas-viewer.test.mjs tests/canvas-library.test.mjs tests/menu-review.test.mjs tests/multiple-terms.test.mjs # 既存検査と今回の回帰検査をすべて実行します。
           node tools/network-browser.mjs # 元の通信境界を検査します。
           node tools/save-status-browser.mjs # 同期と未保存の表示を確認します。
           node tools/sync-latency-browser.mjs # 同期遅延・通信期限切れ・復帰中の端末保存を両エンジンで確認します。
@@ -74,7 +74,7 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 既存の合格条件を維持します。
           node tools/browser-project.mjs # 配信停止・保存・UIを検査します。
           node tools/production-browser.mjs # コピーと更新時の既存データ保持を確認します。
-          node tools/current-version-upgrade.mjs # 1.3.5からの記録・送信待ち保持と1.3.6への切替を確認します。
+          node tools/current-version-upgrade.mjs # 1.3.6からの記録・送信待ち保持と1.3.7への切替を確認します。
       - name: Check categories and reference links # 既存の分類と参照も維持します。
         working-directory: upstream/practice-ui-lab/app # 個人の資格情報は使用しません。
         run: | # 参照先への無断アクセスも検査します。
@@ -89,6 +89,9 @@ jobs: # 検証・配信・公開後確認を分離します。
       - name: Check temporary completion and past menu additions
         working-directory: upstream/practice-ui-lab/app
         run: node tools/menu-review.browser.mjs
+      - name: Check terminology search and multiple selection
+        working-directory: upstream/practice-ui-lab/app
+        run: node tools/multiple-terms.browser.mjs
       - name: Check OneDrive-only photo and video attachments # 新しい取込・表示・再生を実ブラウザで検証します。
         working-directory: upstream/practice-ui-lab/app # 人物を含まない合成ファイルだけを使います。
         run: node tools/media-browser.mjs # 認証とGraphは合成し、実際の保存・PNG・MP4を検証します。
@@ -176,6 +179,7 @@ jobs: # 検証・配信・公開後確認を分離します。
           node tools/canvas-viewer.browser.mjs # 公開URLでも固定作戦・コマ送り・通信なし再生を確認します。
           node tools/canvas-import.browser.mjs # 公開URLでも読込状態・階層・検索・固定版保持を確認します。
           node tools/menu-review.browser.mjs # 公開URLで完了チェックが保存されないこととカテゴリー別追加を確認します。
+          node tools/multiple-terms.browser.mjs # 公開URLで複数用語の選択・保存・再読込とコピーを確認します。
       - name: Preserve public-site evidence # 公開後の結果を残します。
         if: always() # 失敗も保存します。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 既存の証拠保存です。
@@ -191,4 +195,6 @@ jobs: # 検証・配信・公開後確認を分離します。
             upstream/practice-ui-lab/app/reports/media-live/
             upstream/practice-ui-lab/app/reports/canvas-viewer-live/
             upstream/practice-ui-lab/app/reports/canvas-import-live/
+            upstream/practice-ui-lab/app/reports/menu-review-live/
+            upstream/practice-ui-lab/app/reports/multiple-terms-live/
           retention-days: 14 # 保存期間を維持します。

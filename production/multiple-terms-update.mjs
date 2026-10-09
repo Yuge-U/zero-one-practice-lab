@@ -1,0 +1,41 @@
+import {readFile,writeFile,copyFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import assert from 'node:assert/strict';
+const app=process.argv[2],web=join(app,'web');
+const replace=(text,before,after)=>{assert.equal(text.split(before).length,2,'Multiple terms patch target: '+before);return text.replace(before,after);};
+for(const name of ['multiple-terms.mjs','multiple-terms.css'])await copyFile(join('production',name),join(web,name));
+await copyFile('production/multiple-picker.mjs',join(web,'picker.mjs'));
+let model=await readFile(join(web,'core/model.mjs'),'utf8');model="import {snapshotTerms} from '../multiple-terms.mjs';\n"+model;
+model=replace(model,"if (b.kind === 'canvas')", "if(b.kind==='term'&&b.payload.additionalTerms!==undefined)snapshotTerms(b.payload);\n  if (b.kind === 'canvas')");
+await writeFile(join(web,'core/model.mjs'),model);
+let planner=await readFile(join(web,'core/planner.mjs'),'utf8');planner="import {termPayload} from '../multiple-terms.mjs';\n"+planner;
+planner=replace(planner,"makeObject('term', { catalog:'zero-one-terminology', id:termRecord.ID, catalogRevision:row.catalogRevision || catalog.hash, record:termRecord })", "makeObject('term',termPayload(row,termRecord,row.catalogRevision||catalog.hash))");
+await writeFile(join(web,'core/planner.mjs'),planner);
+let draft=await readFile(join(web,'draft.mjs'),'utf8');draft="import {snapshotTerms,validateSelections} from './multiple-terms.mjs';\n"+draft;
+draft=replace(draft,"required(item.name, 'name',", "if(item.termSelections!==undefined)try{validateSelections(item.termSelections);}catch(error){add('termId',`${index+1}番目：${error.message}`,index);}required(item.name, 'name',");
+draft=replace(draft,'term: structuredClone(term.record),', 'termSelections:structuredClone(snapshotTerms(term)),term: structuredClone(term.record),');
+await writeFile(join(web,'draft.mjs'),draft);
+let runtime=await readFile(join(web,'app.mjs'),'utf8');runtime="import {rowTerms,snapshotTerms,validateSelections,MAX_TERMS} from './multiple-terms.mjs';\n"+runtime;
+// Remove the old single-value gathering entirely; selections live on the row.
+const gatherLine=runtime.split('\n').find(line=>line.startsWith('function gather()'));assert(gatherLine);
+runtime=runtime.replace(gatherLine,`function gather(){for(const [index,row]of rows.entries()){const card=$('items').querySelectorAll('.item-card')[index];if(!card)continue;for(const field of ['category','name','minutes','variationName','rule'])row[field]=card.querySelector('[data-field="'+field+'"]').value;}return rows;}`);
+const oldOptions="const options=[NO_TERM,...terms.filter(t=>t.ID!==NO_TERM.ID)].map(t=>`<option value=\"${e(t.ID)}\">${e(t['正式/標準用語'])} / ${e(t['日本語推奨表記'])}</option>`).join('');";
+runtime=replace(runtime,oldOptions,'');
+runtime=replace(runtime,'<label>関連する既存用語<select data-field="termId">${options}</select><button type="button" data-term-picker="${index}" class="field-search">用語を検索</button></label>',`<div class="related-terms"><span class="label">関連する既存用語</span><input type="hidden" data-field="termId" value="\${e(r.termId)}"><div class="selected-terms">\${rowTerms(r).map(entry=>'<span class="selected-term">'+e(entry.record['正式/標準用語'])+'</span>').join('')||'<small class="subtle">関連用語なし</small>'}</div><button type="button" data-term-picker="\${index}" class="field-search">用語を検索・複数選択</button></div>`);
+const oldOpen=runtime.split('\n').find(line=>line.startsWith('function openTermPicker('));assert(oldOpen);
+runtime=runtime.replace(oldOpen,`function openTermPicker(index){
+  gather();const row=rows[index];if(!row)return;const scope=auth.scope(),before=structuredClone(rowTerms(row));
+  const candidates=new Map(before.map(entry=>[entry.record.ID,entry]));
+  for(const record of terms)if(record.ID!==NO_TERM.ID&&!candidates.has(record.ID))candidates.set(record.ID,{record,catalogRevision});
+  picker.open({title:'関連用語を検索・複数選択',help:'英語・日本語・略語・定義で検索し、チェックして選択します。検索を変えても選択は残ります。',multiple:true,selected:before,key:value=>value.record.ID,label:value=>value.record['正式/標準用語'],restoreFocus:()=>$('items').querySelector('[data-term-picker="'+index+'"]')?.focus({preventScroll:true}),maxSelections:MAX_TERMS,maxLength:160,emptyText:'該当する用語がありません。検索条件を変えてください。',items:(_,query)=>[...candidates.values()].filter(entry=>matches(Object.values(entry.record).filter(v=>typeof v==='string').join(' '),query)).map(entry=>({label:entry.record['正式/標準用語'],detail:[entry.record['日本語推奨表記'],entry.record.定義].filter(Boolean).join(' / '),value:entry})),onChoose:entries=>{
+    if(rows[index]!==row||auth.scope()!==scope||saving||mediaImporting)throw new Error('編集中のメニューが変わりました。選び直してください。');
+    validateSelections(entries);if(JSON.stringify(entries)===JSON.stringify(before))return;
+    row.termSelections=structuredClone(entries);row.term=structuredClone(entries[0]?.record||NO_TERM);row.termId=row.term.ID;row.catalogRevision=entries[0]?.catalogRevision||catalogRevision;row.pinned=null;dirty=true;renderRows();saveFeedback('関連用語を反映しました。「練習を保存」で登録してください。');
+  }});
+}`);
+runtime=replace(runtime,"<p class=\"subtle\">${e(term?.['正式/標準用語']||'用語未取得')} · ${e(term?.定義||'')}</p>",`<div class="subtle detail-terms">\${snapshotTerms(objects.get(item.termHash)?.body.payload||{record:NO_TERM}).map(entry=>'<span class="detail-term">'+e(entry.record['正式/標準用語'])+' · '+e(entry.record.定義||'')+'</span>').join('')||'関連用語なし'}</div>`);
+await writeFile(join(web,'app.mjs'),runtime);
+let html=await readFile(join(web,'index.html'),'utf8');html=replace(html,'</head>','<link rel="stylesheet" href="./multiple-terms.css">\n</head>');await writeFile(join(web,'index.html'),html);
+let sw=await readFile(join(web,'sw.js'),'utf8');sw=replace(sw,"'./app.mjs'","'./multiple-terms.mjs','./multiple-terms.css','./app.mjs'");await writeFile(join(web,'sw.js'),sw);
+await copyFile('production/multiple-terms.test.mjs',join(app,'tests/multiple-terms.test.mjs'));
+await copyFile('production/multiple-terms.browser.mjs',join(app,'tools/multiple-terms.browser.mjs'));
