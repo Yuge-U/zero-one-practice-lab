@@ -1,3 +1,4 @@
+import {openSettings} from './connection-menu-test.mjs';
 import {chromium,webkit} from 'playwright';
 import {createServer} from './serve-project.mjs';
 import {rawFixture} from './canvas-fixtures.mjs';
@@ -81,7 +82,7 @@ try {for(const [engine,type] of Object.entries({chromium,webkit})) {
     await page.locator('#canvasFile').setInputFiles({name:'manual.json',mimeType:'application/json',buffer:Buffer.from(good)});await page.waitForFunction(()=>!document.getElementById('canvasDialog').open);
     await page.locator('#savePlan').click();await page.waitForFunction(()=>document.getElementById('saveFeedback').textContent.includes('練習を保存しました'));
     await page.reload();await page.waitForFunction(()=>document.getElementById('editorFields')&&!document.getElementById('editorFields').disabled);await page.locator('[data-tab="library"]').click();await page.locator('.saved-card [data-open]').first().click();await page.waitForFunction(()=>document.getElementById('detailTitle').textContent==='CANVAS importの練習');
-    await check(engine,'I13 手動取込と端末保存・再起動後の固定版保持',async()=>{assert.equal(await page.locator('#detailItems [data-view-canvas]').count(),2);assert(calls.every(i=>i.method==='GET'));const downloadPromise=page.waitForEvent('download');await page.locator('[data-export-canvas]').first().click();const downloaded=await downloadPromise;const stream=await downloaded.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);assert.equal(Buffer.concat(chunks).toString(),good);});
+    await check(engine,'I13 手動取込と端末保存・再起動後の固定版保持',async()=>{assert.equal(await page.locator('#detailItems [data-view-canvas]').count(),2);assert(calls.every(i=>i.method==='GET'));const downloadPromise=page.waitForEvent('download');await openSettings(page);await page.locator('#backup').click();const downloaded=await downloadPromise;const stream=await downloaded.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);const backup=JSON.parse(Buffer.concat(chunks).toString()).body;assert(backup.objects.some(object=>object.body.kind==='canvas'&&object.body.payload.raw===good));});
     // Controller account boundary and batching are exercised with deferred synthetic commands.
     await page.locator('[data-tab="editor"]').click();
     await page.evaluate(async()=>{const {createCanvasImport}=await import('./canvas-import.mjs');window.__ciScope='A';window.__ciApplied=[];window.__ciRequests=[];window.__ciPicker=createCanvasImport({getScope:()=>window.__ciScope,readFile:file=>file.text(),onChoose:(result,target)=>window.__ciApplied.push(target),request:command=>new Promise(resolve=>window.__ciRequests.push({command,resolve}))});window.__ciPicker.open('old-row');});
