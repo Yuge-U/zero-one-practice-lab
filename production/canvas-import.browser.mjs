@@ -8,10 +8,10 @@ import assert from 'node:assert/strict';
 
 // Real Auth, WorkerBridge, GraphClient, parsing and SQLite; synthetic SDK/HTTP only.
 const sdk=`globalThis.msal={PublicClientApplication:class{async initialize(){}async handleRedirectPromise(){return null;}getAllAccounts(){return [{homeAccountId:'canvas-picker-synthetic',username:'synthetic@example.invalid'}];}setActiveAccount(){}async acquireTokenSilent(args){return {accessToken:'synthetic-not-a-real-token',account:args.account};}}};`;
-const reports='reports/canvas-import',results=[],errors=[];
+const live=process.env.SITE_URL,reports=live?'reports/canvas-import-live':'reports/canvas-import',results=[],errors=[];
 await mkdir(reports,{recursive:true});
-const server=createServer();await new Promise(done=>server.listen(0,'127.0.0.1',done));
-const url=`http://127.0.0.1:${server.address().port}/zero-one-practice-lab/`;
+let server,url=live;if(live)assert.equal(live,'https://yuge-u.github.io/zero-one-practice-lab/');
+else {server=createServer();await new Promise(done=>server.listen(0,'127.0.0.1',done));url=`http://127.0.0.1:${server.address().port}/zero-one-practice-lab/`;}
 const good=rawFixture();
 const folder=(id,name)=>({id,name,folder:{}}),file=(id,name)=>({id,name,file:{},size:Buffer.byteLength(id==='bad'?'{}':good)});
 const tree={root:[folder('shared','Shared'),folder('u15','U15'),folder('mal','<img src=x onerror=alert(1)>'),file('root-file','root.json'),file('settings','_save-folders.settings.json'),folder('terms','TERMINOLOGY')],shared:[file('a','ピック.json'),file('bad','読めない.json')],u15:[folder('blob','BLOB'),folder('obu','obu')],blob:[file('b','ピック.json')],obu:[file('c','ＢＬＯＢ_縦スクリーン.json')],mal:[file('d','<b>名前</b>.json')]};
@@ -93,4 +93,4 @@ try {for(const [engine,type] of Object.entries({chromium,webkit})) {
     await check(engine,'I16 別アカウントになった後の読込結果を反映しない',async()=>{assert.equal(await page.evaluate(()=>window.__ciApplied.length),0);assert(await page.locator('#canvasBrowser').isHidden());});
   }catch(e){errors.push({engine,message:e.stack});await page.screenshot({path:join(reports,engine+'-failure.png'),fullPage:true}).catch(()=>{});}
   finally{releaseList?.();releaseRead?.();await context.close();}
-}}finally{server.closeAllConnections();await new Promise(done=>server.close(done));const passed=errors.length===0&&results.length===36;await writeFile(join(reports,'results.json'),JSON.stringify({passed,results,errors,realMicrosoft:false,physicalIPhone:false},null,2));if(!passed){console.error(errors);process.exitCode=1;}}
+}}finally{if(server){server.closeAllConnections();await new Promise(done=>server.close(done));}const passed=errors.length===0&&results.length===36;await writeFile(join(reports,'results.json'),JSON.stringify({url,passed,results,errors,realMicrosoft:false,physicalIPhone:false},null,2));if(!passed){console.error(errors);process.exitCode=1;}}

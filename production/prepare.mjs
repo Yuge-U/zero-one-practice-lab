@@ -1,11 +1,12 @@
 import {updateBrandShell} from './brand-shell-update.mjs';
+import {stampVersion} from './version-update.mjs';
 import {readFile,writeFile,mkdir,copyFile,cp,rm,rename} from 'node:fs/promises'; // 公開候補と検証証拠だけを扱います。
 import {resolve,join,dirname} from 'node:path'; // ビルド領域を固定します。
 import {createHash} from 'node:crypto'; // 公開バイトを照合します。
 import {execFileSync} from 'node:child_process'; // 既存の検証済みビルドを呼び出します。
 import assert from 'node:assert/strict'; // 不一致があれば公開を止めます。
 import {assertApplePng} from './icon-contract.mjs'; // 画像の構造検査をブラウザ検査と共有します。
-execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs','production/tests/brand-shell-update.test.mjs','production/tests/series-connection.test.cjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
+execFileSync(process.execPath,['--test','production/tests/build-contract.test.mjs','production/tests/brand-shell-update.test.mjs','production/tests/series-connection.test.cjs','production/tests/version-policy.test.mjs'],{stdio:'inherit'}); // 更新番号と終了コードの回帰を重いビルドより前に検査します。
 const app=resolve('upstream/practice-ui-lab/app'); // 既存アプリとは別の作業コピーです。
 const base=JSON.parse(await readFile('reports/release-build.json','utf8'));assert.equal(base.release,'0.3.2'); // 旧版の照合を必須とします。
 await cp(join(app,'web'),join(app,'baseline-web'),{recursive:true}); // 既存の更新検証と旧通信コード再現の基準を残します。
@@ -47,12 +48,15 @@ await copyFile('production/sync-minimum.test.mjs',join(app,'tests/sync-minimum.t
 execFileSync(process.execPath,['production/menu-structure-update.mjs',app],{stdio:'inherit'}); // 同期可能な保存済みメニュー構成と途中追加を実装します。
 execFileSync(process.execPath,['production/series-connection-update.mjs',app],{stdio:'inherit'}); // 4アプリ共通の接続操作と状態表示を適用します。
 execFileSync(process.execPath,['production/canvas-viewer-update.mjs',app],{stdio:'inherit'}); // 保存した作戦の閲覧・軽量再生を追加します。
+await cp(join(app,'web'),join(app,'previous-web'),{recursive:true}); // 直前の1.3.4から同じ端末での更新を検証します。
 execFileSync(process.execPath,['production/canvas-import-update.mjs',app],{stdio:'inherit'}); // 読込状態・保存先の階層・全フォルダ検索を追加します。
-// Refresh the app-shell cache for the artwork release without changing data/version contracts.
-const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');assert(sw.includes("const CACHE='zero-one-practice-lab-1.3.4'"));await writeFile(swPath,updateBrandShell(sw.replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-canvas-picker-20261009'")));
-const expected=JSON.parse(await readFile('production/release.json','utf8'));assert.equal(expected.version,'1.3.4'); // 許可した修正版だけを配信します。
+const expected=JSON.parse(await readFile('production/release.json','utf8'));
+await stampVersion(app,expected.version); // 表示・診断・SWと検証記録を一つの公開版番号へ揃えます。
+const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');const cache=`const CACHE='zero-one-practice-lab-${expected.version}'`;assert(sw.includes(cache));await writeFile(swPath,updateBrandShell(sw.replace(cache,`const CACHE='zero-one-practice-lab-${expected.version}-canvas-picker-20261009'`),expected.version));
+const previousSwPath=join(app,'previous-web/sw.js');await writeFile(previousSwPath,updateBrandShell((await readFile(previousSwPath,'utf8')).replace("const CACHE='zero-one-practice-lab-1.3.4'","const CACHE='zero-one-practice-lab-1.3.4-canvas-import-20261008'")));
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
+await copyFile('production/brand/zero-one-logo.svg',join(app,'previous-web/brand-logo.svg'));
 const files=[]; // 公開バイトの証拠を実際のコード行で初期化します。
 const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // Coreは従来どおり固定SHAで検証します。
 for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // 全必須ファイルを照合してから候補へ書き込みます。
@@ -60,10 +64,14 @@ for(const name of ['icons/icon-192.webp','icons/icon-512.webp','icons/apple-touc
 for(const name of ['apple-touch-zero-one-180-20261007m.png','apple-touch-icon.png','apple-touch-icon-precomposed.png','safari-practice-180-20261007g.png','safari-practice-192-20261007g.png','favicon.ico','favicon-practice-20261007f.ico','favicon-practice-32-20261007f.png']) {
   const bytes=await readFile(join('production/icons',name));
   if(name.endsWith('.ico')) {assert.equal(bytes.readUInt16LE(2),1);assert.equal(bytes.readUInt16LE(4),3);assert.deepEqual([bytes[6],bytes[22],bytes[38]],[16,32,48]);}
-  await writeFile(join(app,'web',name),bytes);await writeFile(join(output,name),bytes);
+  await writeFile(join(app,'web',name),bytes);await writeFile(join(app,'previous-web',name),bytes);await writeFile(join(output,name),bytes);
   files.push({name,sha256:createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length,gate:'ui-validated'});
 }
 const entryBytes=await readFile('production/brand-entry.js');await writeFile(join(app,'web/brand-entry.js'),entryBytes);await writeFile(join(output,'brand-entry.js'),entryBytes);files.push({name:'brand-entry.js',sha256:createHash('sha256').update(entryBytes).digest('hex'),bytes:entryBytes.length,gate:'ui-validated'});
+await writeFile(join(app,'previous-web/brand-entry.js'),entryBytes);
+let upgrade=await readFile(join(app,'tools/upgrade-check.mjs'),'utf8');
+upgrade=upgrade.replaceAll("reports/upgrade","reports/current-version-upgrade").replaceAll("resolve('baseline-web')","resolve('previous-web')").replaceAll('/0\\.3\\.2/','/1\\.3\\.4/').replaceAll("from:'0.3.2'","from:'1.3.4'").replace("await page.getByRole('button',{name:'端末に保存',exact:true}).click()","await page.locator('#savePlan').click()");
+await writeFile(join(app,'tools/current-version-upgrade.mjs'),upgrade);
 const brandBytes=await readFile(join(app,'web/brand-logo.svg'));assert(brandBytes.length>500&&brandBytes.toString('utf8').includes('<svg'),'ZERO ONE brand logo invalid');await writeFile(join(output,'brand-logo.svg'),brandBytes); // 共通ロゴも公開候補へ含めます。
 assertApplePng(await readFile(join(output,'icons/apple-touch-icon.png'))); // 配信するPNG本体の形式と180pxの寸法を検証します。
 const manifest=JSON.parse(await readFile(join(app,'web/manifest.webmanifest'),'utf8'));assert.equal(manifest.name,'ZERO ONE PRACTICE');assert(manifest.icons.some(icon=>icon.src.includes('icon-192.webp')));assert(manifest.icons.some(icon=>icon.src.includes('icon-512.webp'))); // PWAが正式アイコンを参照していることを確認します。
@@ -71,4 +79,4 @@ const brandedHtml=await readFile(join(app,'web/index.html'),'utf8');assert(brand
 const worker=await readFile(join(app,'web/worker.js'),'utf8');const auth=await readFile(join(app,'web/auth.mjs'),'utf8');assert(worker.includes("directory:'/.zero-one-browser-lab-v02/'+sha(scope)"));assert(worker.includes("new pool.OpfsSAHPoolDb('/core.db')"));assert(auth.includes("'guest-local'")); // DB名と本人・ゲストの境界を保持します。
 await writeFile('reports/production-build.json',JSON.stringify({version:expected.version,sourceCommit:base.sourceCommit,files,existingDataPathsPreserved:true,realMicrosoft:false,physicalIPhone:false},null,2)); // 本人端末の検証とは区別して記録します。
 await rm(resolve('_site'),{recursive:true,force:true});await rename(output,resolve('_site')); // 構造検証に合格した候補だけを配信待ちの出力へ確定します。
-console.log('1.3.4 candidate verified; existing data paths are unchanged.'); // ビルドと公開の完了を混同しません。
+console.log(expected.version+' candidate verified; existing data paths are unchanged.'); // ビルドと公開の完了を混同しません。
