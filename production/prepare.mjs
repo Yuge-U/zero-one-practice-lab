@@ -57,6 +57,7 @@ execFileSync(process.execPath,['production/startup-update.mjs',app],{stdio:'inhe
 await rm(join(app,'previous-web'),{recursive:true,force:true});await cp(join(app,'web'),join(app,'previous-web'),{recursive:true}); // 公開した1.3.8を更新検査用に再構成します。
 for(const name of ['config.mjs','core/service.mjs','index.html','sw.js']){const path=join(app,'previous-web',name);await writeFile(path,(await readFile(path,'utf8')).replaceAll('1.3.4','1.3.8'));}
 execFileSync(process.execPath,['production/startup-safety-update.mjs',app],{stdio:'inherit'}); // 古い起動コードでも編集中に再読み込みしません。
+execFileSync(process.execPath,['production/startup-entry-update.mjs',app],{stdio:'inherit'}); // URL切替前の二重起動を避け、認証戻りのURLは維持します。
 await copyFile('production/startup.browser.mjs',join(app,'tools/startup.browser.mjs'));
 const expected=JSON.parse(await readFile('production/release.json','utf8'));
 await stampVersion(app,expected.version); // 表示・診断・SWと検証記録を一つの公開版番号へ揃えます。
