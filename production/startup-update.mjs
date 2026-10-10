@@ -1,0 +1,23 @@
+import {readFile,writeFile,copyFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import assert from 'node:assert/strict';
+const app=process.argv[2],web=join(app,'web');
+function replace(source,before,after){assert.equal(source.split(before).length,2,'Startup patch target: '+before);return source.replace(before,after);}
+for(const name of ['practice-startup.js','practice-startup.css'])await copyFile(join('production',name),join(web,name));
+let html=await readFile(join(web,'index.html'),'utf8');
+assert(html.includes('<fieldset id="editorFields" disabled>'),'Editor remains disabled until storage is ready');
+const cloud='<span id="zeroOneConnection" aria-label="OneDrive接続・同期・バックアップ"></span>';
+html=replace(html,cloud,'<span id="zeroOneConnection" class="zero-one-connection zoc-compact" aria-label="OneDrive接続・同期・バックアップ"><button id="practiceStartupCloud" class="zoc-primary" type="button" aria-haspopup="dialog" aria-label="OneDrive接続・同期の準備状況"><span class="zoc-cloud" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18H6a4 4 0 0 1-.5-8 6.5 6.5 0 0 1 12.4-1.4A4.8 4.8 0 0 1 19 18h-2"/><path d="M9 18h6"/></svg></span><span class="zoc-caption" aria-hidden="true">確認中</span></button></span>');
+html=replace(html,'<main>','<main><section id="practiceStartupNotice" role="status" hidden><div id="practiceStartupNoticeText"></div><button id="practiceStartupNoticeReload" type="button">再読み込み</button></section><noscript><p class="notice error">アプリの起動にはJavaScriptが必要です。Safariの設定を確認してください。</p></noscript>');
+html=replace(html,'</head>','<link rel="stylesheet" href="./practice-startup.css"></head>');
+html=replace(html,'<script type="module" src="./app.mjs"></script>','<script defer src="./practice-startup.js"></script>');
+html=replace(html,'</body>','<dialog id="practiceStartupDialog" aria-labelledby="practiceStartupTitle"><div class="section-head"><h2 id="practiceStartupTitle">OneDrive接続・同期の準備</h2><button id="practiceStartupClose" type="button">閉じる</button></div><p id="practiceStartupMessage">アプリを読み込んでいます。準備が終わると接続・同期を利用できます。</p><p id="practiceStartupCode"></p><button id="practiceStartupReload" type="button" hidden>再読み込み</button><button id="practiceStartupOpen" type="button" hidden>接続・同期を開く</button></dialog></body>');
+await writeFile(join(web,'index.html'),html);
+let runtime=await readFile(join(web,'app.mjs'),'utf8');
+runtime='globalThis.PracticeStartup?.executing();\n'+runtime;
+runtime=replace(runtime,'guard(boot);',"globalThis.PracticeStartup?.guard(()=>!dirty&&!saving&&!mediaImporting);guard(async()=>{try{await boot();globalThis.PracticeStartup?.ready();}catch(error){globalThis.PracticeStartup?.fail(error);throw error;}});");
+runtime=replace(runtime,'await auth.init();',"globalThis.PracticeStartup?.phase('account');await auth.init();");
+runtime=replace(runtime,'const result=await openWorker();initialized=true;refreshState(result.state);$(\'editorFields\').disabled=false;$(\'environment\')',"globalThis.PracticeStartup?.phase('storage');const result=await openWorker();initialized=true;refreshState(result.state);$('editorFields').disabled=false;$('environment')");
+await writeFile(join(web,'app.mjs'),runtime);
+let common=await readFile(join(web,'zero-one-connection.js'),'utf8');common=replace(common,'button.disabled = current.disabled === true;','button.disabled = false;');await writeFile(join(web,'zero-one-connection.js'),common);
+let sw=await readFile(join(web,'sw.js'),'utf8');sw=replace(sw,"'./app.mjs'","'./practice-startup.js','./practice-startup.css','./app.mjs'");await writeFile(join(web,'sw.js'),sw);

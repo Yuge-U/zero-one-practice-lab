@@ -1,0 +1,6 @@
+#practiceStartupNotice{margin:0 0 18px;padding:12px;border:1px solid #dfcf9d;border-radius:10px;background:#fff8e9;color:#644c15;font-size:14px;overflow-wrap:anywhere}
+#practiceStartupNotice[data-error=true]{background:#fff2f0;border-color:#e4b7ae;color:#8c3029}
+#practiceStartupNotice button{margin-top:8px;min-height:44px}
+#practiceStartupDialog{width:calc(100% - 32px);max-width:420px;max-height:calc(100dvh - 32px);overflow:auto;padding:20px;border:1px solid #d4dde6;border-radius:16px}
+#practiceStartupDialog .section-head{margin-top:0}#practiceStartupDialog p{overflow-wrap:anywhere}#practiceStartupCode{font-size:12px;color:#637489}
+#practiceStartupNotice[hidden],#practiceStartupDialog [hidden]{display:none!important}
