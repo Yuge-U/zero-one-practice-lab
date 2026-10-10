@@ -50,13 +50,15 @@ execFileSync(process.execPath,['production/series-connection-update.mjs',app],{s
 execFileSync(process.execPath,['production/canvas-viewer-update.mjs',app],{stdio:'inherit'}); // 保存した作戦の閲覧・軽量再生を追加します。
 execFileSync(process.execPath,['production/canvas-import-update.mjs',app],{stdio:'inherit'}); // 読込状態・保存先の階層・全フォルダ検索を追加します。
 execFileSync(process.execPath,['production/menu-review-update.mjs',app],{stdio:'inherit'}); // 一時的な完了チェックとカテゴリー別の過去メニュー追加です。
-await rm(join(app,'previous-web'),{recursive:true,force:true});await cp(join(app,'web'),join(app,'previous-web'),{recursive:true}); // 現在公開している1.3.6を再構成します。
-for(const name of ['config.mjs','core/service.mjs','index.html','sw.js']){const path=join(app,'previous-web',name);await writeFile(path,(await readFile(path,'utf8')).replaceAll('1.3.4','1.3.6'));}
-execFileSync(process.execPath,['production/multiple-terms-update.mjs',app],{stdio:'inherit'}); // 検索・複数選択と固定した用語の任意追加フィールドです。
+execFileSync(process.execPath,['production/multiple-terms-update.mjs',app],{stdio:'inherit'});
+await rm(join(app,'previous-web'),{recursive:true,force:true});await cp(join(app,'web'),join(app,'previous-web'),{recursive:true}); // 現在公開している1.3.7を再構成します。
+for(const name of ['config.mjs','core/service.mjs','index.html','sw.js']){const path=join(app,'previous-web',name);await writeFile(path,(await readFile(path,'utf8')).replaceAll('1.3.4','1.3.7'));}
+execFileSync(process.execPath,['production/startup-update.mjs',app],{stdio:'inherit'}); // 起動失敗時も同期入口と安全な復旧案内を表示します。
+await copyFile('production/startup.browser.mjs',join(app,'tools/startup.browser.mjs'));
 const expected=JSON.parse(await readFile('production/release.json','utf8'));
 await stampVersion(app,expected.version); // 表示・診断・SWと検証記録を一つの公開版番号へ揃えます。
 const swPath=join(app,'web/sw.js');const sw=await readFile(swPath,'utf8');const cache=`const CACHE='zero-one-practice-lab-${expected.version}'`;assert(sw.includes(cache));await writeFile(swPath,updateBrandShell(sw.replace(cache,`const CACHE='zero-one-practice-lab-${expected.version}-canvas-picker-20261009'`),expected.version));
-const previousSwPath=join(app,'previous-web/sw.js');await writeFile(previousSwPath,updateBrandShell((await readFile(previousSwPath,'utf8')).replace("const CACHE='zero-one-practice-lab-1.3.6'","const CACHE='zero-one-practice-lab-1.3.6-canvas-picker-20261009'"),'1.3.6'));
+const previousSwPath=join(app,'previous-web/sw.js');await writeFile(previousSwPath,updateBrandShell((await readFile(previousSwPath,'utf8')).replace("const CACHE='zero-one-practice-lab-1.3.7'","const CACHE='zero-one-practice-lab-1.3.7-canvas-picker-20261009'"),'1.3.7'));
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'previous-web/brand-logo.svg'));
@@ -73,7 +75,7 @@ for(const name of ['apple-touch-zero-one-180-20261007m.png','apple-touch-icon.pn
 const entryBytes=await readFile('production/brand-entry.js');await writeFile(join(app,'web/brand-entry.js'),entryBytes);await writeFile(join(output,'brand-entry.js'),entryBytes);files.push({name:'brand-entry.js',sha256:createHash('sha256').update(entryBytes).digest('hex'),bytes:entryBytes.length,gate:'ui-validated'});
 await writeFile(join(app,'previous-web/brand-entry.js'),entryBytes);
 let upgrade=await readFile(join(app,'tools/upgrade-check.mjs'),'utf8');
-upgrade=upgrade.replaceAll("reports/upgrade","reports/current-version-upgrade").replaceAll("resolve('baseline-web')","resolve('previous-web')").replaceAll('/0\\.3\\.2/','/1\\.3\\.6/').replaceAll("from:'0.3.2'","from:'1.3.6'").replace("await page.getByRole('button',{name:'端末に保存',exact:true}).click()","await page.locator('#savePlan').click()");
+upgrade=upgrade.replaceAll("reports/upgrade","reports/current-version-upgrade").replaceAll("resolve('baseline-web')","resolve('previous-web')").replaceAll('/0\\.3\\.2/','/1\\.3\\.7/').replaceAll("from:'0.3.2'","from:'1.3.7'").replace("await page.getByRole('button',{name:'端末に保存',exact:true}).click()","await page.locator('#savePlan').click()");
 await writeFile(join(app,'tools/current-version-upgrade.mjs'),upgrade);
 const brandBytes=await readFile(join(app,'web/brand-logo.svg'));assert(brandBytes.length>500&&brandBytes.toString('utf8').includes('<svg'),'ZERO ONE brand logo invalid');await writeFile(join(output,'brand-logo.svg'),brandBytes); // 共通ロゴも公開候補へ含めます。
 assertApplePng(await readFile(join(output,'icons/apple-touch-icon.png'))); // 配信するPNG本体の形式と180pxの寸法を検証します。
