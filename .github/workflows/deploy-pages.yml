@@ -74,7 +74,7 @@ jobs: # 検証・配信・公開後確認を分離します。
         run: | # 既存の合格条件を維持します。
           node tools/browser-project.mjs # 配信停止・保存・UIを検査します。
           node tools/production-browser.mjs # コピーと更新時の既存データ保持を確認します。
-          node tools/current-version-upgrade.mjs # 1.3.7からの記録・送信待ち保持と1.3.8への切替を確認します。
+          node tools/current-version-upgrade.mjs # 1.3.8からの記録・送信待ち保持と1.3.9への切替を確認します。
       - name: Check categories and reference links # 既存の分類と参照も維持します。
         working-directory: upstream/practice-ui-lab/app # 個人の資格情報は使用しません。
         run: | # 参照先への無断アクセスも検査します。
@@ -184,6 +184,18 @@ jobs: # 検証・配信・公開後確認を分離します。
           node tools/menu-review.browser.mjs # 公開URLで完了チェックが保存されないこととカテゴリー別追加を確認します。
           node tools/multiple-terms.browser.mjs # 公開URLで複数用語の選択・保存・再読込とコピーを確認します。
           node tools/startup.browser.mjs # 公開URLで読込失敗・起動案内・認証保持と復帰を確認します。
+      - name: Report public-site browser failures
+        if: failure()
+        working-directory: upstream/practice-ui-lab/app
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for report in Path('reports').rglob('*.json'):
+              result = json.loads(report.read_text())
+              if isinstance(result, dict) and result.get('errors'):
+                  print(str(report), json.dumps(result['errors'], ensure_ascii=False))
+          PY
       - name: Preserve public-site evidence # 公開後の結果を残します。
         if: always() # 失敗も保存します。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 既存の証拠保存です。
