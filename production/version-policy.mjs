@@ -14,6 +14,12 @@ export function assertVersionIncrease(previous,next) {
   const changed=after.findIndex((part,index)=>part!==before[index]);
   assert(changed>=0&&after[changed]>before[changed],`Published changes must increase the app version: ${previous} → ${next}`);
 }
+export function assertReleaseVersion(previous,next,paths) {
+  const checksOnly=new Set(['production/startup.browser.mjs','production/version-policy.mjs','production/tests/version-policy.test.mjs']);
+  versionParts(previous);versionParts(next);
+  if(previous===next&&paths.length>0&&paths.every(path=>checksOnly.has(path)))return 'checks-only';
+  assertVersionIncrease(previous,next);return 'app-change';
+}
 export function comparisonCommit(eventName,event,repository) {
   if(eventName==='workflow_dispatch')return null; // Rebuilding the same release is allowed.
   assert(['pull_request','push'].includes(eventName),'Unsupported release event');
@@ -30,6 +36,7 @@ async function checkRelease() {
   const release=JSON.parse(await readFile('production/release.json','utf8'));versionParts(release.version);
   if(!base){console.log('Rebuilding version',release.version);return;}
   const previous=JSON.parse(execFileSync('git',['show',`${base}:production/release.json`],{encoding:'utf8'}));
-  assertVersionIncrease(previous.version,release.version);console.log('Release version increases:',previous.version,'→',release.version);
+  const paths=execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+  const kind=assertReleaseVersion(previous.version,release.version,paths);console.log(kind==='checks-only'?'Rechecking unchanged app bytes:':'Release version increases:',previous.version,'→',release.version);
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await checkRelease();

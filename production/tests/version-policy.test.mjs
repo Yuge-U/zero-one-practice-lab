@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {versionParts,assertVersionIncrease,comparisonCommit} from '../version-policy.mjs';
+import {versionParts,assertVersionIncrease,assertReleaseVersion,comparisonCommit} from '../version-policy.mjs';
+
+test('only the exact startup-check files may recheck the same app version',()=>{
+  assert.equal(assertReleaseVersion('1.3.9','1.3.9',['production/startup.browser.mjs','production/version-policy.mjs','production/tests/version-policy.test.mjs']),'checks-only');
+  for(const path of ['production/practice-startup.js','production/startup-update.mjs','production/prepare.mjs','production/release.json','release-lock.json','.github/workflows/deploy-pages.yml','production/startup.browser.mjs/other'])assert.throws(()=>assertReleaseVersion('1.3.9','1.3.9',['production/startup.browser.mjs',path]));
+  assert.throws(()=>assertReleaseVersion('1.3.9','1.3.9',[]));
+});
+test('checks-only changes cannot lower the app version or admit invalid versions',()=>{
+  assert.throws(()=>assertReleaseVersion('1.3.9','1.3.8',['production/startup.browser.mjs']));
+  assert.throws(()=>assertReleaseVersion('1.3.9','1.3.9-beta',['production/startup.browser.mjs']));
+  assert.equal(assertReleaseVersion('1.3.9','1.3.10',['production/practice-startup.js']),'app-change');
+});
 
 test('published changes must increase the version numerically',()=>{
   for(const [before,after] of [['1.3.4','1.3.5'],['1.3.9','1.3.10'],['1.9.9','1.10.0'],['1.99.99','2.0.0']])assert.doesNotThrow(()=>assertVersionIncrease(before,after));
