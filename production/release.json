@@ -3,7 +3,7 @@
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "THIRD_PARTY_NOTICES.md": "031645a0c7b5baeb129cbb4ed544917004ac2de0f2a752baef417e9d0404fa42",
-    "app.mjs": "5cbf1374e967b36a4b4cda447f4a825a4c7449ea45a1db84cbeabc70eae9fa2e",
+    "app.mjs": "b36b485c5ea174074147ce0c4979bc793b6976cfbad602d48cfde6826ff70012",
     "auth.mjs": "75164083f347f60157cae27549af6c81e666e4228328487553a8e3dec588f711",
     "catalog.mjs": "02322194e18daf8c0fa6a5cd30165557031cbe521269df9fc11caa3b0cda9280",
     "config.mjs": "2d1205678228dfdd325568503b6d525b99cd85b7015ed98ac3741c1aeecacc59",
@@ -23,7 +23,7 @@
     "icons/apple-touch-icon.png": "c94bcdd5c3f4a3401e994f46cc828f31c898fdf79875d08c69b6a9b7821a5f96",
     "icons/icon-192.webp": "3ba291687198acfd29e1eb4c0fc74bf3ac36eb373fdc3b06d25567188454e907",
     "icons/icon-512.webp": "8c4a162ca9b370230a20d49239406ee6e7ecec8a9d485cd7e3d2c743d9f91b7c",
-    "index.html": "e41f48ef237a8435333be7a45cf512e0e4c2027976f51cce1f739d02c68f49af",
+    "index.html": "abea2180f4f449f560fd6cf603164142fb9806fbd68dc925f405e21a9844c2d0",
     "manifest.webmanifest": "93b24d41fd6f61804d6f41f7873df9d6cc7eea7e3966a53136710050577dc4d2",
     "media-cloud.mjs": "60caf36f8fe46dea0b5ce2561b2a8e7aba49f2209e6af53c39a94f0c63265866",
     "media-import-policy.mjs": "5fb3b5e9e8ad9633e0c4ac9bbd8d52fa5cc600a04b4454d45c63e50789f895f2",
@@ -36,7 +36,7 @@
     "save-status.mjs": "1ebf40a2fd22142b3a15e5f8eab8b80e559667bbd0d8498d61853a02fa80d191",
     "series.css": "80a7d3819bc9b1941da55e1a81ed68ec590e95a51af969f65ac9a71fa38ddb5b",
     "style.css": "f3deb1eea35f25cff70ef1ab5eaaec47b5ec0f9f097f1a026166f3e6a46f01b8",
-    "sw.js": "440a20b6339ff1e802baf4c19abd2e2b317e251b7c48940276006db65c2f5e58",
+    "sw.js": "86448297be30f69ef1fa38d8bc943b3f2a3df495e468ab9dd08aa1cd6a2b8d2c",
     "ui.mjs": "547ac40a8e176a407f7823aa80af9a6d758ded75908421e0729b296781941605",
     "vendor/MSAL-LICENSE.txt": "c544adf8f0d43453d9fdf6c11da19605d12d89806a7870653169b8cc97f5bb53",
     "vendor/msal-browser.min.js": "074de35a99c1e7fa51d6e235cdaf688d4a24af91f43aef9c54532afcbba62ef2",
@@ -60,8 +60,8 @@
     "multiple-terms.css": "f062e159a7a13746e181dc04deff8e446e10bfcd6f267ebd8d216ce08c5057e4",
     "practice-startup.js": "50ba74054f3db418cdc624014f48599c46f94baca4db257e7f30e08586193276",
     "practice-startup.css": "899146069d6edf93741d720ceb8d9b8d3b7b286122ff3bf0fc2b4d57c526825a",
-    "zero-one-update.js": "23c53b5b8672af5075233157b9df91a10ca4cf838bee508f2aa88ce7bd50d56a",
+    "zero-one-update.js": "d452b3f6aa6a1403be0c246762eefc71b238ee2a58ba5fcd8ac186425a061e01",
     "zero-one-update.css": "56caba661c2b1da58ab01628bdcc307179730e320422f5763c340ec463bc663e",
-    "app-version.json": "12fe00cfb413e16bddb0cff9a556fc2fe512a96a821b9c7e1be7ed400d3fad75"
+    "app-version.json": "b1c5e19980f52020228adc1b71c464c636d16a03d4e79f40743f9a6e0f7907fd"
   }
 }
