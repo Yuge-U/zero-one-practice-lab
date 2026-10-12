@@ -24,7 +24,7 @@ for(const name of ['apple-touch-zero-one-180-20261007m.png','apple-touch-icon.pn
 
 const files=[...new Set([...Object.keys(pinned.files).filter(name=>name!=='app-version.json'&&['.mjs','.js','.html','.css','.json','.wasm','.webmanifest','.svg','.png','.webp'].includes(extname(name))),'zero-one-update.js','zero-one-update.css','brand-entry.js','brand-logo.svg','apple-touch-zero-one-180-20261007m.png','apple-touch-icon.png','apple-touch-icon-precomposed.png','safari-practice-180-20261007g.png','safari-practice-192-20261007g.png','favicon.ico','favicon-practice-20261007f.ico','favicon-practice-32-20261007f.png'])];
 const appAssets=files.filter(name=>['.mjs','.js','.html','.css','.json','.wasm','.webmanifest','.svg','.png','.webp'].includes(extname(name)));
-const config=join(app,'tools/update-release.config.json');await writeFile(config,JSON.stringify({root:web,app:'PRACTICE',files:appAssets,worker:'sw.js',versionMount:'#settings'}));
+const config=join(app,'tools/update-release.config.json');await writeFile(config,JSON.stringify({root:web,app:'PRACTICE',files:appAssets,worker:'sw.js',versionMount:'#settings',entryParam:'brand',entryValue:'20261007k'}));
 execFileSync(process.execPath,['production/safe-update/build-update-release.mjs',config],{stdio:'inherit'});
 execFileSync(process.execPath,['production/safe-update/build-update-release.mjs',config,'--check'],{stdio:'inherit'});
 

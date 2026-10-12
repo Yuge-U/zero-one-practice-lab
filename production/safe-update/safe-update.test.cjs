@@ -40,3 +40,11 @@ test('version generation preserves inline JavaScript, URLs and repeatable build 
 });
 
 test('offline misses return a network error while saved app assets remain readable',async()=>{const w=worker();await w.invoke('install');w.setOffline();let response;w.events.fetch({request:{url:'https://example.test/app/uncached',method:'GET',mode:'cors'},respondWith:p=>response=p});assert.equal(response,undefined,'unknown requests stay outside the app worker');w.events.fetch({request:{url:'https://example.test/app/app.js',method:'GET',mode:'cors'},respondWith:p=>response=p});assert.equal(await(await response).text(),'js');});
+
+test('update boot waits for the established entry URL and preserves OAuth callbacks',()=>{
+  const source=readFileSync(join(root,'zero-one-update.js'),'utf8');
+  function boot(href){const meta={content:'a'.repeat(64),dataset:{app:'PRACTICE',entryParam:'brand',entryValue:'20261007k'}};const context={URL,URLSearchParams,location:{href},navigator:{onLine:false},document:{readyState:'complete',hidden:false,querySelector:()=>meta,addEventListener(){}},window:{addEventListener(){}},setInterval(){},console};vm.runInNewContext(source,context);return context;}
+  const pending=boot('https://example.test/practice/');assert.equal(pending.zeroOneUpdater,undefined);assert.equal(pending.location.href,'https://example.test/practice/');
+  const settled=boot('https://example.test/practice/?brand=20261007k');assert.equal(settled.zeroOneUpdater.current,'a'.repeat(64));
+  for(const callback of ['?code=test&state=test','#code=test&state=test']){const context=boot('https://example.test/practice/'+callback);assert.equal(context.location.href,'https://example.test/practice/'+callback);assert.equal(context.zeroOneUpdater.current,'a'.repeat(64));}
+});

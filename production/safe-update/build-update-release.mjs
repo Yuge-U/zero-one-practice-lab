@@ -21,10 +21,10 @@ for(const name of [...files].sort()){
   }else if(name===config.worker){canonical.set(name,Buffer.from(bytes.toString().replace(/const BUILD_ID='[a-f0-9]{64}';/,"const BUILD_ID='__ZERO_ONE_BUILD__';").replace(/const APP_ASSETS=(?:__ZERO_ONE_ASSETS__|\[[^\n]*\]);/,'const APP_ASSETS='+appAssets+';')));}
   else canonical.set(name,bytes);
 }
-const buildId=hash(Buffer.concat([...canonical].flatMap(([name,bytes])=>[Buffer.from(name+'\0'),bytes,Buffer.from('\0')])));
+const buildId=hash(Buffer.concat([Buffer.from(JSON.stringify({entryParam:config.entryParam||'',entryValue:config.entryValue||''})+'\0'),...[...canonical].flatMap(([name,bytes])=>[Buffer.from(name+'\0'),bytes,Buffer.from('\0')]) ]));
 const outputs=new Map();
 for(const [name,bytes] of canonical){let final=bytes;
-  if(htmlNames.includes(name)){let html=bytes.toString();const meta=`<meta name="zero-one-build" content="${buildId}" data-app="${config.app}" data-worker="${config.worker||''}" data-version-mount="${config.versionMount||''}">\n`;html=html.replace('<head>','<head>'+meta);
+  if(htmlNames.includes(name)){let html=bytes.toString();const meta=`<meta name="zero-one-build" content="${buildId}" data-app="${config.app}" data-worker="${config.worker||''}" data-version-mount="${config.versionMount||''}" data-entry-param="${config.entryParam||''}" data-entry-value="${config.entryValue||''}">\n`;html=html.replace('<head>','<head>'+meta);
     html=assetUrls(html,url=>/^(?:https?:|\/\/|data:)/.test(url)?url:url+(url.includes('?')?'&':'?')+'build='+buildId);final=Buffer.from(html);
   }else if(name===config.worker)final=Buffer.from(bytes.toString().replace('__ZERO_ONE_BUILD__',buildId));outputs.set(name,final);
 }
