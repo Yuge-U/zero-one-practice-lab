@@ -28,3 +28,13 @@ execFileSync(process.execPath,['production/safe-update/build-update-release.mjs'
 execFileSync(process.execPath,['production/safe-update/build-update-release.mjs',config,'--check'],{stdio:'inherit'});
 
 for(const name of ['safe-update.test.cjs','safe-update.browser.cjs','update-worker.fixture.js'])await copyFile('production/safe-update/'+name,join(app,'tests',name));
+
+// Keep all existing browser scenarios strict; distinguish only WebKit's expected SW network fault while the test origin is deliberately stopped.
+const smokePath=join(app,'tools/browser-project.mjs');let smoke=await readFile(smokePath,'utf8');
+const listener="page.on('pageerror',error=>errors.push({engine,message:error.message}));";assert(smoke.includes(listener));
+smoke=smoke.replace('const results=[],errors=[];', 'const results=[],errors=[],expectedOfflineWorkerErrors=[];let testOriginStopped=false;');
+smoke=smoke.replace("async function check(engine,name,fn){try{", "async function check(engine,name,fn){phase=name;try{");
+smoke=smoke.replace(listener, "page.on('pageerror',error=>{const fault={engine,phase,message:error.message,stack:error.stack};console.log('PAGE_ERROR_DIAGNOSTIC',JSON.stringify(fault));const expected=engine==='webkit'&&testOriginStopped&&error.message.includes(new URL('sw.js',url).host+new URL('sw.js',url).pathname)&&error.message.endsWith('due to access control checks.');(expected?expectedOfflineWorkerErrors:errors).push(fault);});");
+smoke=smoke.replace("assert.equal(server.listening,false);try{", "assert.equal(server.listening,false);testOriginStopped=true;try{");
+smoke=smoke.replace("finally{await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));}", "finally{testOriginStopped=false;await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));}");
+smoke=smoke.replace('profileMethod:', 'expectedOfflineWorkerErrors,profileMethod:');await writeFile(smokePath,smoke);
