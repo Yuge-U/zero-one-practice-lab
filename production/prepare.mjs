@@ -66,9 +66,16 @@ const previousSwPath=join(app,'previous-web/sw.js');await writeFile(previousSwPa
 const output=resolve('_site.candidate');await rm(output,{recursive:true,force:true});await mkdir(output); // 確定前の候補を既存の出力から分離します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'web/brand-logo.svg')); // Splashとヘッダーは共通ZERO ONEロゴを使用します。
 await copyFile('production/brand/zero-one-logo.svg',join(app,'previous-web/brand-logo.svg'));
+execFileSync(process.execPath,['production/safe-app-update.mjs',app],{stdio:'inherit'});
 const files=[]; // 公開バイトの証拠を実際のコード行で初期化します。
+const generatedRelease=new Set(['sw.js','app-version.json']); // Generated resources are validated against the committed template and every actual asset.
+const descriptor=JSON.parse(await readFile(join(app,'web/app-version.json'),'utf8'));
+assert.equal(descriptor.app,'PRACTICE');assert.equal(descriptor.schema,1);assert(/^[a-f0-9]{64}$/.test(descriptor.buildId));
+const workerTemplate=(await readFile('production/safe-update/update-worker.js','utf8')).replace('__ZERO_ONE_ASSETS__',JSON.stringify(descriptor.files.map(file=>file.path).sort())).replace('__ZERO_ONE_BUILD__',descriptor.buildId).replace('__ZERO_ONE_APP__','PRACTICE').replace('__ZERO_ONE_CACHE_PREFIX__','zero-one-practice-lab-release-').replace('__ZERO_ONE_VERSION__',expected.version);
+assert.equal(await readFile(join(app,'web/sw.js'),'utf8'),workerTemplate,'Generated worker must match its committed source');
+for(const file of descriptor.files)assert.equal(createHash('sha256').update(await readFile(join(app,'web',file.path))).digest('hex'),file.sha256,'Release asset mismatch: '+file.path);
 const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // Coreは従来どおり固定SHAで検証します。
-for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // 全必須ファイルを照合してから候補へ書き込みます。
+for(const [name,hash]of Object.entries(expected.files)){assert(!name.includes('..')&&!name.startsWith('/'));const bytes=await readFile(join(app,'web',name));const actual=createHash('sha256').update(bytes).digest('hex');if(!flexibleUi.has(name)&&!generatedRelease.has(name))assert.equal(actual,hash,'Production bytes mismatch: '+name);await mkdir(dirname(join(output,name)),{recursive:true});await writeFile(join(output,name),bytes);files.push({name,sha256:actual,bytes:bytes.length,gate:generatedRelease.has(name)?'release-generated':flexibleUi.has(name)?'ui-validated':'sha-pinned'});} // 全必須ファイルを照合してから候補へ書き込みます。
 for(const name of ['icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']){const bytes=await readFile(join(app,'web',name));assert(bytes.length>1000,'UI icon too small: '+name);} // 空画像や破損した生成物を拒否します。
 for(const name of ['apple-touch-zero-one-180-20261007m.png','apple-touch-icon.png','apple-touch-icon-precomposed.png','safari-practice-180-20261007g.png','safari-practice-192-20261007g.png','favicon.ico','favicon-practice-20261007f.ico','favicon-practice-32-20261007f.png']) {
   const bytes=await readFile(join('production/icons',name));
