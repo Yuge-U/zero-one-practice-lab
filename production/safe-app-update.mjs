@@ -12,6 +12,8 @@ assert(runtime.includes(before));runtime=runtime.replace(before,"async function 
  .replace("registration.addEventListener('updatefound',()=>message('更新を検出しました。編集を保存してからこのアプリのすべてのタブを閉じると新しい版に切り替わります。'));",'');
 const registrationBefore="const registration=await navigator.serviceWorker.register('./sw.js');";
 assert(runtime.includes(registrationBefore));runtime=runtime.replace(registrationBefore,"const registration=await navigator.serviceWorker.getRegistration(new URL('./',location.href).href)||(navigator.onLine&&!globalThis.ZeroOneUpdate?.authReturn(new URL(location.href))?await navigator.serviceWorker.register('./sw.js',{scope:new URL('./',location.href).href,updateViaCache:'none'}):null);if(!registration)return;");
+const readyBefore="navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'offlineCheck'}));";
+assert(runtime.includes(readyBefore));runtime=runtime.replace(readyBefore,"navigator.serviceWorker.ready.then(r=>r.active?.postMessage({type:'offlineCheck'})).catch(()=>message('アプリ本体の事前取得は未完了です。通信復帰後に確認してください。',true));");
 runtime=runtime.replace('let saving = false;','let saving = false; let zeroOneUpdateOperations=0;');
 runtime+="\nwindow.ZeroOneUpdateGuard=()=>({ready:initialized,busy:Boolean(saving||sending||mediaImporting||referenceBusy||connecting||zeroOneUpdateOperations||timer?.running||mediaSession?.busy),dirty:Boolean(dirty||$('reflection').value.trim()||(currentDetail&&$('actualMinutes').value!==String(currentDetail.operation.body.payload.totalMinutes))||referenceTarget||document.querySelector('#canvasDialog[open],#referenceDialog[open]')),message:'編集中の練習・振り返りを保存し、入力画面を閉じてから更新してください。'});\n";
 await writeFile(join(web,'app.mjs'),runtime);
