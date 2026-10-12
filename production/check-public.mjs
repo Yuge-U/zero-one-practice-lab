@@ -3,10 +3,16 @@ import { createHash } from 'node:crypto'; // 公開されたバイトを照合�
 import assert from 'node:assert/strict'; // 一致しない版を公開成功と扱いません。
 const url = process.env.SITE_URL; assert.equal(url, 'https://yuge-u.github.io/zero-one-practice-lab/'); // 今回の公開先だけを確認します。
 const release = JSON.parse(await readFile('production/release.json', 'utf8')); // 検証済みの公開物一覧を読みます。
+const build=JSON.parse(await readFile('reports/production-build.json','utf8'));
+assert.equal(build.version,release.version);
+const builtFiles=new Map(build.files.map(file=>[file.name,file.sha256]));
+const generatedRelease=new Set(['sw.js','app-version.json']);
 const results = []; const attempts = []; const flexibleUi=new Set(['index.html','style.css','series.css','manifest.webmanifest','icons/icon-192.webp','icons/icon-512.webp','icons/apple-touch-icon.png']); // Coreは固定SHA、UIは公開構造を確認します。
 await mkdir('reports', { recursive: true }); // 証拠の保存先を用意します。
 try { // 取得できたコードだけを検証します。
-  for (const [name, expected] of Object.entries(release.files)) { // 全ての公開ファイルを確認します。
+  for (const [name, pinned] of Object.entries(release.files)) {
+    const expected=builtFiles.get(name);assert(expected,'Missing verified build asset: '+name);
+    if(!flexibleUi.has(name)&&!generatedRelease.has(name))assert.equal(expected,pinned,'Pinned build mismatch: '+name); // 全ての公開ファイルを確認します。
     if (name === '.nojekyll') continue; // ホスティング設定用の非配信ファイルだけ除きます。
     assert(!name.includes('..') && !name.startsWith('/')); // 公開先外への参照を禁止します。
     const target = new URL(name, url); let verified = false; // 検査するURLを固定します。
@@ -14,7 +20,7 @@ try { // 取得できたコードだけを検証します。
       const response = await fetch(target, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) }); // HTTPSと認証不要の静的ファイルだけを取得します。
       const data = Buffer.from(await response.arrayBuffer()); const actual = createHash('sha256').update(data).digest('hex'); // 実際に公開された全バイトを照合します。
       attempts.push({ name, attempt, status: response.status, sha256: actual }); // 再取得も省略せず記録します。
-      if (response.status === 200 && (actual === expected || flexibleUi.has(name))) { if(flexibleUi.has(name))assert(data.length>100,'Published UI asset too small: '+name); results.push({ name, status: 200, sha256: actual, bytes: data.length, gate:flexibleUi.has(name)?'ui-live':'sha-pinned' }); verified = true; break; } // Coreは正確なバイト、UIは正常配信を確認します。
+      if (response.status === 200 && actual === expected) { if(flexibleUi.has(name))assert(data.length>100,'Published UI asset too small: '+name); results.push({ name, status: 200, sha256: actual, bytes: data.length, gate:flexibleUi.has(name)?'ui-live':'sha-pinned' }); verified = true; break; } // Coreは正確なバイト、UIは正常配信を確認します。
       if (attempt < 3) await new Promise(done => setTimeout(done, 5000)); // 伝播待機の上限を設けます。
     } // このファイルの取得を終えます。
     assert(verified, 'Published bytes do not match: ' + name); // 別版が残っていた場合は公開後確認を失敗にします。
