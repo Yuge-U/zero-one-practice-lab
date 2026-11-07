@@ -33,6 +33,30 @@ for(const [engine,type] of Object.entries(process.env.BROWSER_ENGINE==='chromium
  if(engine==='webkit')await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));
  const page=await context.newPage();await page.goto(base+'?filter=keep#section');await page.waitForFunction(()=>window.zeroOneUpdater);if(swPath)await page.waitForFunction(()=>navigator.serviceWorker.controller);
  await record(engine,'first installation has no update notice',async()=>{await page.evaluate(()=>zeroOneUpdater.check(true));assert.equal(await page.locator('#zeroOneUpdateNotice:visible').count(),0);assert.equal(await page.evaluate(()=>fixtureLoaded),'A');});
+ if(swPath){
+   const descriptor=await page.evaluate(async()=>{
+     localStorage.setItem('cache-recovery.sentinel','keep');
+     const meta=document.querySelector('meta[name="zero-one-build"]');
+     const prefix=meta.dataset.app==='CANVAS'?'zeroone-canvas-release-':'zero-one-practice-lab-release-';
+     const cache=await caches.open(prefix+zeroOneUpdater.current);
+     const url=new URL('app-version.json',location.href);
+     const descriptor=await(await cache.match(url)).text();
+     await cache.delete(url);
+     return descriptor;
+   });
+   originOnline=false; // Simulate an unavailable origin while allowing WebKit's service worker to serve cached requests.
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>fixtureLoaded==='A');
+   await record(engine,'lost update metadata preserves offline application boot',async()=>{
+     assert.equal(await page.evaluate(()=>localStorage.getItem('cache-recovery.sentinel')),'keep');
+   });
+   await page.evaluate(async descriptor=>{
+     const app=document.querySelector('meta[name="zero-one-build"]').dataset.app;
+     const cache=await caches.open((app==='CANVAS'?'zeroone-canvas-release-':'zero-one-practice-lab-release-')+zeroOneUpdater.current);
+     await cache.put(new URL('app-version.json',location.href),new Response(descriptor,{headers:{'Content-Type':'application/json'}}));
+   },descriptor);
+   originOnline=true;
+ }
  await page.evaluate(async()=>{localStorage.setItem('msal.synthetic.account','signed-in-sentinel');localStorage.setItem('user.plan','{"name":"saved","version":1}');sessionStorage.setItem('msal.synthetic.session','session-sentinel');await(await caches.open('other-app-owned')).put('./other-app',new Response('keep'));await new Promise((resolve,reject)=>{const request=indexedDB.open('update-data',1);request.onupgradeneeded=()=>request.result.createObjectStore('records');request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result,tx=db.transaction('records','readwrite');tx.objectStore('records').put({id:'saved',content:[1,2,3]},'plan');tx.oncomplete=()=>{db.close();resolve();};};});});
  await page.locator('#draft').fill('unsaved draft');const retained=await context.newPage();await retained.goto(base);await retained.waitForFunction(()=>window.zeroOneUpdater);await retained.locator('#draft').fill('retained draft');
  stage=1;await page.evaluate(()=>zeroOneUpdater.check(true));assert.equal(await page.evaluate(()=>explicitWorkerUpdates),0,'Notification must not explicitly update the worker');

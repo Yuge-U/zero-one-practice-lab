@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-07",
+  "app": "PRACTICE",
+  "version": "1.3.12",
+  "status": "local-validation-passed; not-published",
+  "finding": "The original Service Worker returns Response.error for application navigation and assets when its cached app-version.json is missing or unreadable, even when the application assets remain cached. A rejected metadata read also remains memoized. This is a reproduced failure path; the cause on the user's device is not confirmed.",
+  "repair": "Serve existing application assets independently of release metadata, fall back to the network when the application cache cannot be read, and retry failed metadata reads. Explicit update readiness still requires readable completion metadata.",
+  "checks": {
+    "build": {
+      "version": "1.3.12",
+      "result": "passed"
+    },
+    "requiredGeneratedAppUnitTests": {
+      "suites": 17,
+      "passed": 273,
+      "failed": 0,
+      "skipped": 0
+    },
+    "versionPolicyUnitTests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "safeUpdateUnitTests": {
+      "passed": 12,
+      "failed": 0,
+      "originalWorkerNewRegressionFailures": 2
+    },
+    "chromiumSafeUpdateBrowserChecks": {
+      "passed": 15,
+      "failed": 0,
+      "source": "production/verify-entry.cjs; root-agent run"
+    },
+    "publicHttps": {
+      "result": "blocked",
+      "reason": "The execution environment denied access to yuge-u.github.io with HTTP 403; live deployment bytes and operation were not verified."
+    },
+    "webkitSafeUpdateBrowserChecks": {
+      "passed": 15,
+      "failed": 0,
+      "engineVersion": "26.6",
+      "source": "production/verify-entry.cjs"
+    },
+    "offlineRegression": "The origin server drops connections while verified assets remain cached. This is not a physical iPhone airplane-mode test. Playwright WebKit context.setOffline caused an internal navigation error, so this regression uses the suite existing unavailable-origin method."
+  },
+  "preservation": {
+    "userOrAuthStorageCleared": false,
+    "storageSchemaOrAuthSettingsChanged": false,
+    "oldTabAndOAuthRegressionChecks": "passed"
+  },
+  "notVerified": [
+    "The user's affected browser or device",
+    "Physical iPhone or iPad behavior",
+    "Real Microsoft authentication or OneDrive synchronization",
+    "Safari native Adaptive Dark Mode behavior or its contribution to the reported blank screen",
+    "Production publication and live HTTPS operation"
+  ]
+}
