@@ -13,19 +13,46 @@ test('manifest rejects traversal, remote URLs, duplicate paths, malformed builds
 test('OAuth query/hash callbacks are recognized without changing the URL',()=>{for(const params of ['?code=test&state=x','#access_token=test','?error=denied','#id_token=test']){const url=new URL('https://example.test/app/'+params),before=url.href;assert(api.authReturn(url));assert.equal(url.href,before);}assert(!api.authReturn(new URL('https://example.test/app/?filter=keep#settings')));});
 test('incomplete deployment and failed downloads are rejected before update',async()=>{await api.verifyAsset(new Response('js'),digest('js'));await assert.rejects(()=>api.verifyAsset(new Response('old-js'),digest('js')));await assert.rejects(()=>api.verifyAsset(new Response('missing',{status:404}),digest('js')));});
 function worker({corrupt=false,offline=false}={}){
- const events={},maps=new Map(),requests=[],deleted=[];let skips=0,claims=0;
- const caches={open:async name=>{if(!maps.has(name))maps.set(name,new Map());const map=maps.get(name);return {put:async(k,v)=>map.set(String(k),v),match:async k=>map.get(String(k))?.clone()};},delete:async key=>deleted.push(key)};
+ const events={},maps=new Map(),requests=[],deleted=[];let skips=0,claims=0,cacheFault='';
+ const caches={open:async name=>{if(cacheFault==='open')throw Error('CacheStorage unavailable');if(!maps.has(name))maps.set(name,new Map());const map=maps.get(name);return {put:async(k,v)=>map.set(String(k),v),match:async k=>{if(cacheFault==='match')throw Error('Cache read unavailable');return map.get(String(k))?.clone();}};},delete:async key=>deleted.push(key)};
  const self={registration:{scope:'https://example.test/app/'},clients:{claim:async()=>claims++},skipWaiting:async()=>skips++,addEventListener:(name,fn)=>events[name]=fn};
  const fetch=async request=>{requests.push(String(request.url||request));if(offline)throw Error('offline');const url=new URL(request.url||request);if(url.pathname.endsWith('app-version.json'))return new Response(JSON.stringify(manifest));return new Response(url.pathname.endsWith('index.html')?'html':corrupt?'old-js':'js');};
  const source=readFileSync(process.env.UPDATE_WORKER_TEMPLATE||join(__dirname,'update-worker.fixture.js'),'utf8').replace('__ZERO_ONE_ASSETS__',JSON.stringify(manifest.files.map(file=>file.path))).replace('__ZERO_ONE_BUILD__',id).replace('__ZERO_ONE_APP__','TEST').replace('__ZERO_ONE_CACHE_PREFIX__','test-owned-release-').replace('__ZERO_ONE_VERSION__','1');
- vm.runInNewContext(source,{self,caches,fetch,URL,Response,crypto:webcrypto,Map,Set,Error,Promise,Uint8Array});
+ vm.runInNewContext(source,{self,caches,fetch,URL,URLSearchParams,Response,crypto:webcrypto,Map,Set,Error,Promise,Uint8Array});
  async function invoke(name,args={}){let promise;events[name]({...args,waitUntil:p=>promise=p});if(promise)await promise;}
- return {setOffline(){offline=true;},events,invoke,maps,requests,deleted,get skips(){return skips;},get claims(){return claims;}};
+ return {setOffline(){offline=true;},setCacheFault(value){cacheFault=value;},events,invoke,maps,requests,deleted,get skips(){return skips;},get claims(){return claims;}};
+}
+function assetResponse(w,path='index.html',mode='cors'){
+ let response;w.events.fetch({request:{url:'https://example.test/app/'+path,method:'GET',mode},respondWith:p=>response=p});assert(response,'app asset must be handled');return response;
 }
 test('existing worker waits; only matching explicit update activates it',async()=>{const w=worker();await w.invoke('install');assert.equal(w.skips,0);let reply;await w.invoke('message',{data:{type:'ZERO_ONE_APPLY_UPDATE',buildId:old},ports:[{postMessage:v=>reply=v}]});assert.equal(reply.accepted,false);assert.equal(w.skips,0);await w.invoke('message',{data:{type:'ZERO_ONE_APPLY_UPDATE',buildId:id},ports:[{postMessage:v=>reply=v}]});assert(reply.accepted);assert.equal(w.skips,1);await w.invoke('activate');assert.equal(w.claims,1);assert.deepEqual(w.deleted,[]);});
 test('interrupted/partial installation never marks a release complete',async()=>{for(const options of [{corrupt:true},{offline:true}]){const w=worker(options);await assert.rejects(()=>w.invoke('install'));assert.equal(w.skips,0);let reply;await w.invoke('message',{data:{type:'ZERO_ONE_RELEASE_INFO'},ports:[{postMessage:v=>reply=v}]});assert.equal(reply.ready,false);}});
 test('OAuth, API, external and non-GET responses never enter the app cache',async()=>{const w=worker();await w.invoke('install');for(const url of ['https://graph.microsoft.com/v1.0/me','https://login.microsoftonline.com/token','https://example.test/app/?code=test&state=x','https://example.test/app/app-version.json']){let used=false;w.events.fetch({request:{url,method:'GET',mode:'navigate'},respondWith(){used=true;}});assert.equal(used,false,url);}let response;w.events.fetch({request:{url:'https://example.test/app/private-api',method:'GET',mode:'cors'},respondWith:p=>response=p});assert.equal(response,undefined);assert.equal([...w.maps.values()][0].size,3);});
 test('retained clients can still load their own previous immutable assets',async()=>{const w=worker();await w.invoke('install');w.maps.set('test-owned-release-'+old,new Map([['https://example.test/app/app.js',new Response('old-app')]]));await w.invoke('message',{data:{type:'ZERO_ONE_CLIENT_BUILD',buildId:old},source:{id:'old-tab'}});let response;w.events.fetch({clientId:'old-tab',request:{url:'https://example.test/app/app.js',method:'GET',mode:'cors'},respondWith:p=>response=p});assert.equal(await(await response).text(),'old-app');});
+test('missing or unreadable release metadata does not block cached offline startup and can recover',async()=>{
+ for(const broken of ['missing','invalid-json']){
+  const w=worker();await w.invoke('install');const cache=w.maps.get('test-owned-release-'+id),key='https://example.test/app/app-version.json';
+  if(broken==='missing')cache.delete(key);else cache.set(key,new Response('{interrupted-json'));
+  w.setOffline();w.requests.length=0;
+  assert.equal(await(await assetResponse(w,'','navigate')).text(),'html',broken+' navigation');
+  assert.equal(await(await assetResponse(w,'app.js')).text(),'js',broken+' script');
+  assert.deepEqual(w.requests,[],'existing verified assets should not require network or metadata');
+  let reply;const info=()=>w.invoke('message',{data:{type:'ZERO_ONE_RELEASE_INFO'},ports:[{postMessage:value=>reply=value}]});
+  await info();assert.equal(reply.ready,false,'updates remain blocked without readable completion metadata');
+  await w.invoke('message',{data:{type:'ZERO_ONE_APPLY_UPDATE',buildId:id},ports:[{postMessage:value=>reply=value}]});
+  assert.equal(reply.accepted,false);assert.equal(w.skips,0);
+  cache.set(key,new Response(JSON.stringify(manifest)));await info();assert.equal(reply.ready,true,'a failed metadata read must not remain memoized');
+  assert.deepEqual(w.deleted,[]);
+ }
+});
+test('unavailable app cache falls back to network without clearing any storage',async()=>{
+ for(const fault of ['open','match']){
+  const w=worker();await w.invoke('install');w.setCacheFault(fault);w.requests.length=0;
+  assert.equal(await(await assetResponse(w,'app.js')).text(),'js',fault);
+  assert.deepEqual(w.requests,['https://example.test/app/app.js']);assert.deepEqual(w.deleted,[]);
+  w.setOffline();assert.equal((await assetResponse(w,'app.js')).type,'error','a network outage is reported as a network error');
+ }
+});
 test('version generation preserves inline JavaScript, URLs and repeatable build identity',()=>{
  const {mkdtempSync,writeFileSync,rmSync}=require('node:fs'),{tmpdir}=require('node:os'),{execFileSync}=require('node:child_process');
  const directory=mkdtempSync(join(tmpdir(),'update-build-')),builder=process.env.UPDATE_BUILDER||join(root,'scripts/build-update-release.mjs');
